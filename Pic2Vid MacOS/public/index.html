@@ -1,0 +1,1205 @@
+<!DOCTYPE html><html lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0" name="viewport">
+<title>Product Studio</title>
+<link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "secondary-container": "#4a4949",
+                  "on-secondary-fixed": "#1c1b1b",
+                  "on-primary": "#003827",
+                  "tertiary": "#c8c6c5",
+                  "primary-fixed-dim": "#68dbae",
+                  "surface-tint": "#68dbae",
+                  "surface-container-low": "#1c1b1b",
+                  "inverse-surface": "#e5e2e1",
+                  "on-error-container": "#ffdad6",
+                  "background": "#050505",
+                  "secondary-fixed-dim": "#c8c6c5",
+                  "surface": "#050505",
+                  "surface-variant": "#353534",
+                  "on-secondary": "#313030",
+                  "surface-bright": "#3a3939",
+                  "outline-variant": "#3d4943",
+                  "on-secondary-fixed-variant": "#474646",
+                  "on-primary-container": "#003121",
+                  "on-background": "#e5e2e1",
+                  "on-tertiary": "#303030",
+                  "error": "#ffb4ab",
+                  "inverse-on-surface": "#313030",
+                  "surface-dim": "#131313",
+                  "primary": "#1D9E75",
+                  "inverse-primary": "#006c4e",
+                  "surface-container-lowest": "#0e0e0e",
+                  "secondary-fixed": "#e5e2e1",
+                  "on-tertiary-container": "#2a2a2a",
+                  "surface-container-highest": "#353534",
+                  "on-surface": "#e5e2e1",
+                  "primary-fixed": "#86f8c9",
+                  "primary-container": "#26a37a",
+                  "on-secondary-container": "#bab8b7",
+                  "secondary": "#c8c6c5",
+                  "on-tertiary-fixed": "#1b1c1c",
+                  "surface-container-high": "#2a2a2a",
+                  "on-surface-variant": "#bccac1",
+                  "on-error": "#690005",
+                  "surface-container": "#111111",
+                  "on-primary-fixed-variant": "#00513a",
+                  "on-primary-fixed": "#002115",
+                  "outline": "#87948c",
+                  "tertiary-container": "#929090",
+                  "tertiary-fixed": "#e4e2e1",
+                  "tertiary-fixed-dim": "#c8c6c5",
+                  "on-tertiary-fixed-variant": "#474746",
+                  "error-container": "#93000a"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.125rem",
+                  "lg": "0.25rem",
+                  "xl": "0.5rem",
+                  "full": "0.75rem"
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    /* ===== ĐỂ ĐỔI LOGO: thay URL bên dưới bằng link ảnh logo của bạn ===== */
+    :root { --brand-logo-url: url('./logo3.png'); }
+    /* Ví dụ với file local: url('./logo.png')  */
+    /* Ví dụ với URL online: url('https://example.com/logo.png') */
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
+      background: #050505;
+      color: #e5e2e1; 
+      min-height: 100vh; 
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: -0.015em;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Ambient Background Blobs */
+    .ambient-bg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      overflow: hidden;
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.25;
+      mix-blend-mode: screen;
+    }
+    .blob-1 { width: 500px; height: 500px; background: #6b21a8; top: -100px; right: -100px; animation: float 20s infinite alternate; }
+    .blob-2 { width: 600px; height: 600px; background: #1e3a8a; bottom: -100px; left: -100px; animation: float 25s infinite alternate-reverse; }
+    .blob-3 { width: 450px; height: 450px; background: #1D9E75; top: 25%; left: 30%; animation: float 18s infinite alternate; }
+
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(60px, 80px) scale(1.2); }
+    }
+
+    .app { max-width: 420px; margin: 0 auto; padding-bottom: 80px; position: relative; z-index: 1; }
+
+    .topbar { 
+      padding: 20px 24px 26px; 
+      border-bottom: none;
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between; 
+      position: sticky; 
+      top: 0; 
+      background: linear-gradient(
+        180deg,
+        rgba(15, 15, 15, 0.80) 0%,
+        rgba(10, 10, 10, 0.50) 60%,
+        rgba(5, 5, 5, 0.00) 100%
+      );
+      backdrop-filter: blur(20px); 
+      -webkit-backdrop-filter: blur(20px); 
+      z-index: 100; 
+    }
+    .topbar-title { 
+      font-size: 20px; 
+      font-weight: 800; 
+      letter-spacing: -0.8px; 
+      color: #ffffff; 
+    }
+    .topbar-badge { 
+      font-size: 9px; 
+      padding: 5px 12px; 
+      border-radius: 40px; 
+      background: rgba(255,255,255,0.05); 
+      color: #aaa; 
+      border: 0.5px solid rgba(255,255,255,0.15); 
+      font-weight: 700; 
+      text-transform: uppercase; 
+      letter-spacing: 0.8px; 
+    }
+
+    .section { padding: 32px 20px; }
+
+    /* GLASS COMPONENTS - Updated for high fidelity */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 0.5px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+      border-radius: 24px;
+    }
+
+    /* MODE TABS */
+    .mode-tabs { display: flex; gap: 12px; margin-bottom: 32px; }
+    .mode-tab { 
+      flex: 1; 
+      padding: 14px; 
+      border-radius: 16px; 
+      border: 0.5px solid rgba(255, 255, 255, 0.1); 
+      background: rgba(255, 255, 255, 0.04); 
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 14px; 
+      font-weight: 600; 
+      color: #999; 
+      cursor: pointer; 
+      text-align: center; 
+      transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      gap: 8px; 
+    }
+    .mode-tab.active { 
+      border-color: rgba(29, 158, 117, 0.7); 
+      color: #ffffff; 
+      background: linear-gradient(135deg, rgba(29, 158, 117, 0.28) 0%, rgba(29, 158, 117, 0.18) 100%);
+      box-shadow: 
+        0 0 0 1px rgba(29, 158, 117, 0.35) inset,
+        0 1px 0 rgba(255,255,255,0.08) inset,
+        0 12px 28px -6px rgba(29, 158, 117, 0.35),
+        0 0 20px rgba(29, 158, 117, 0.12);
+    }
+
+    /* UPLOAD - Updated for Glassmorphism */
+    .upload-area { 
+      border: 1px dashed rgba(255, 255, 255, 0.3); 
+      border-radius: 28px; 
+      padding: 60px 24px; 
+      text-align: center; 
+      background: rgba(255, 255, 255, 0.03); 
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 0.5px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+      cursor: pointer; 
+      transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); 
+      margin-bottom: 24px; 
+      position: relative; 
+      overflow: hidden;
+    }
+    .upload-area:hover, .upload-area.drag { 
+      border-color: rgba(29, 158, 117, 0.8); 
+      background: rgba(29, 158, 117, 0.08); 
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    }
+    .upload-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 10; }
+    
+    /* Chặn hiệu ứng pointer events lỗi để click xuyên thấu vào input file */
+    .upload-area > div, .upload-area > svg { pointer-events: none; }
+
+    .upload-icon-wrap { 
+      width: 64px; height: 64px; 
+      border-radius: 20px; 
+      background: rgba(255,255,255,0.06); 
+      border: 1px solid rgba(255, 255, 255, 0.2); 
+      display: flex; align-items: center; justify-content: center; 
+      margin: 0 auto 20px; color: #1D9E75; font-size: 32px; 
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    }
+    .upload-area:hover .upload-icon-wrap { 
+      transform: scale(1.1) translateY(-4px); 
+      background: rgba(29, 158, 117, 0.15);
+      border-color: rgba(29, 158, 117, 0.6); 
+    }
+    .upload-title { font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 8px; letter-spacing: -0.4px; }
+    .upload-hint { font-size: 13px; color: rgba(255, 255, 255, 0.6); font-weight: 500; }
+
+    /* SINGLE PREVIEW */
+    .preview-wrap { border-radius: 28px; overflow: hidden; margin-bottom: 24px; border: 0.5px solid rgba(255,255,255,0.2); display: none; position: relative; box-shadow: 0 24px 64px -12px rgba(0,0,0,0.8); }
+    .preview-wrap img { width: 100%; max-height: 300px; object-fit: cover; display: block; }
+    .preview-change { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.2); color: #fff; font-size: 12px; font-weight: 700; padding: 10px 18px; border-radius: 12px; cursor: pointer; transition: 0.2s; }
+
+    /* PIPELINE TRACK (Glass style) */
+    .pipeline-track { 
+      display: flex; align-items: center; padding: 28px 20px; 
+      background: rgba(255, 255, 255, 0.04); 
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 24px; 
+      border: 0.5px solid rgba(255, 255, 255, 0.12); 
+      margin-bottom: 24px; 
+    }
+    .track-step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .track-dot { 
+      width: 44px; height: 44px; border-radius: 14px; 
+      background: rgba(255,255,255,0.06); 
+      border: 1px solid rgba(255,255,255,0.2); 
+      display: flex; align-items: center; justify-content: center; 
+      font-size: 18px; color: rgba(255, 255, 255, 0.3); 
+      transition: all 0.5s ease; 
+    }
+    .track-dot svg { transition: filter 0.5s ease; }
+    .track-dot.active { 
+      background: rgba(29, 158, 117, 0.2); 
+      border-color: rgba(29, 158, 117, 0.8); 
+      color: #1D9E75; 
+      box-shadow: 0 0 20px rgba(29, 158, 117, 0.4);
+      transform: scale(1.1);
+    }
+    .track-dot.active svg {
+      filter: brightness(0) invert(1);
+    }
+    .track-dot.done { 
+      background: #1D9E75; 
+      border-color: #1D9E75; 
+      color: #fff;
+    }
+    .track-dot.done svg {
+      filter: brightness(0) invert(1);
+    }
+    .track-label { font-size: 10px; color: rgba(255, 255, 255, 0.4); font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; }
+    .track-label.active, .track-label.done { color: #1D9E75; }
+    .track-line { height: 1px; width: 30px; background: rgba(255,255,255,0.1); margin-bottom: 22px; flex-shrink: 0; }
+    .track-line.lit { background: #1D9E75; }
+
+    /* PROMPTS (Glass style) */
+    .prompt-item { margin-bottom: 12px; overflow: visible; position: relative; }
+    .prompt-toggle { 
+      display: flex; align-items: center; justify-content: space-between; 
+      padding: 20px 22px; 
+      background: rgba(255, 255, 255, 0.05); 
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 0.5px solid rgba(255, 255, 255, 0.12); 
+      border-radius: 20px; 
+      cursor: pointer; transition: all 0.3s ease; 
+    }
+    .prompt-toggle:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.25); }
+    .prompt-toggle-left { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.85); letter-spacing: -0.2px; }
+    .ptag { 
+      font-size: 10px; padding: 5px 11px 5px 8px; border-radius: 40px; font-weight: 800; 
+      text-transform: uppercase; letter-spacing: 0.6px;
+      display: inline-flex; align-items: center; gap: 6px;
+      min-width: 90px; justify-content: center;
+      height: 28px; box-sizing: border-box;
+    }
+    .ptag svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .ptag-g { 
+      background: linear-gradient(135deg, rgba(66,133,244,0.18) 0%, rgba(234,67,53,0.10) 30%, rgba(251,188,5,0.10) 60%, rgba(52,168,83,0.18) 100%);
+      border: 1px solid rgba(130,160,255,0.35); 
+      color: #a8c4ff;
+      box-shadow: 0 2px 12px rgba(80,120,255,0.15);
+    }
+    .ptag-m { 
+      background: linear-gradient(135deg, rgba(255,151,227,0.15) 0%, rgba(0,80,226,0.15) 40%, rgba(35,248,204,0.15) 100%);
+      border: 1px solid rgba(100,180,255,0.3); 
+      color: #a0d4ff;
+      box-shadow: 0 2px 12px rgba(0,80,226,0.15);
+    }
+    .prompt-arrow { font-size: 18px; color: rgba(255, 255, 255, 0.4); transition: transform 0.4s; }
+    .prompt-body { display: none; padding: 20px; background: rgba(20,22,26,0.92); border: 0.5px solid rgba(255, 255, 255, 0.12); border-top: none; border-radius: 0 0 20px 20px; margin-top: 0; padding-top: 20px; overflow: visible; position: relative; }
+    .prompt-item-open .prompt-toggle { border-radius: 20px 20px 0 0; border-bottom-color: transparent; }
+    .prompt-body textarea { 
+      width: 100%; background: transparent; border: none; outline: none; 
+      color: rgba(255, 255, 255, 0.8); font-size: 13px; font-family: "JetBrains Mono", monospace; 
+      line-height: 1.6; resize: vertical; min-height: 100px; 
+    }
+
+    /* BUTTONS (Glass style) */
+    .run-btn { 
+      width: 100%; padding: 18px; 
+      background: linear-gradient(135deg, rgba(29, 158, 117, 0.85) 0%, rgba(0, 108, 78, 0.85) 100%); 
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      color: white; border: 0.5px solid rgba(255,255,255,0.3); border-radius: 20px; 
+      font-size: 16px; font-weight: 800; cursor: pointer; 
+      display: flex; align-items: center; justify-content: center; 
+      gap: 12px; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1); 
+      margin-bottom: 24px; 
+      box-shadow: 0 12px 32px -8px rgba(29, 158, 117, 0.5);
+    }
+    .run-btn:hover:not(:disabled) { transform: translateY(-4px); box-shadow: 0 20px 48px -10px rgba(29, 158, 117, 0.7); filter: brightness(1.1); }
+    .run-btn:disabled { background: rgba(60, 60, 60, 0.4); color: rgba(255, 255, 255, 0.3); cursor: not-allowed; border-color: rgba(255,255,255,0.1); box-shadow: none; }
+
+    /* STATUS & PROGRESS */
+    .status-bar { display: none; align-items: center; gap: 12px; padding: 16px 20px; background: rgba(29, 158, 117, 0.15); backdrop-filter: blur(20px); border: 0.5px solid rgba(29, 158, 117, 0.4); border-radius: 18px; margin-bottom: 16px; font-size: 13px; color: #ffffff; font-weight: 600; }
+    .batch-progress { display: none; padding: 18px 20px; background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.15); border-radius: 20px; margin-bottom: 16px; backdrop-filter: blur(20px); }
+    .batch-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
+    .batch-bar-fill { height: 100%; background: linear-gradient(90deg, #1D9E75, #68dbae); width: 0%; box-shadow: 0 0 15px rgba(29, 158, 117, 0.6); }
+
+    /* FILE LIST */
+    .file-item { 
+      display: flex; align-items: center; gap: 14px; padding: 16px; 
+      background: rgba(255,255,255,0.05); 
+      backdrop-filter: blur(16px);
+      border: 0.5px solid rgba(255, 255, 255, 0.12); 
+      border-radius: 20px; margin-bottom: 12px; 
+    }
+
+    /* LOG & RESULTS */
+    .log-panel { 
+      display: none; background: rgba(0, 0, 0, 0.5); 
+      backdrop-filter: blur(24px);
+      border: 0.5px solid rgba(255, 255, 255, 0.15); 
+      border-radius: 20px; padding: 18px; 
+      font-family: "JetBrains Mono", monospace; font-size: 11px; 
+      color: #1D9E75; max-height: 160px; 
+      overflow-y: auto; margin-bottom: 24px; 
+    }
+    .results-grid { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .result-card { 
+      background: rgba(255,255,255,0.06); 
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 0.5px solid rgba(255, 255, 255, 0.2); 
+      border-radius: 24px; overflow: hidden; 
+      box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+    }
+    .result-card-top { padding: 12px 14px; border-bottom: 0.5px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 8px; font-size: 11px; color: rgba(255, 255, 255, 0.5); font-weight: 700; }
+    
+    .spinning { display: inline-block; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* CATEGORY DROPDOWN */
+    .cat-select-wrap { margin-bottom: 12px; position: relative; user-select: none; }
+    .cat-select { display: none; }
+    .custom-select { position: relative; }
+    .custom-select-trigger {
+      width: 100%; padding: 11px 36px 11px 14px;
+      background: rgba(255,255,255,0.06); backdrop-filter: blur(12px);
+      border: 0.5px solid rgba(255,255,255,0.15); border-radius: 12px;
+      color: rgba(255,255,255,0.75); font-size: 12px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .custom-select-trigger:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.25); }
+    .custom-select-trigger.open { border-radius: 12px 12px 0 0; border-color: rgba(29,158,117,0.5); border-bottom-color: transparent; background: rgba(255,255,255,0.08); }
+    .custom-select-arrow { font-size: 13px; color: rgba(255,255,255,0.35); transition: transform 0.25s; flex-shrink: 0; }
+    .custom-select-trigger.open .custom-select-arrow { transform: rotate(180deg); }
+    .custom-select-dropdown {
+      display: none; position: fixed; z-index: 99999;
+      background: rgba(22,24,28,0.97);
+      border: 0.5px solid rgba(29,158,117,0.4); border-top: none;
+      border-radius: 0 0 12px 12px;
+      overflow: hidden;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    .custom-select-dropdown.open { display: block; }
+    .custom-select-option {
+      padding: 11px 14px; font-size: 12px; font-weight: 600;
+      color: rgba(255,255,255,0.6); cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      border-bottom: 0.5px solid rgba(255,255,255,0.05);
+    }
+    .custom-select-option:last-child { border-bottom: none; }
+    .custom-select-option:hover { background: rgba(29,158,117,0.15); color: #fff; }
+    .custom-select-option.selected { background: rgba(29,158,117,0.2); color: #68dbae; }
+    .cat-select-icon { display: none; }
+    
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+    /* HOVER EFFECTS - Mode tabs */
+    .mode-tab {
+      transition: all 0.3s ease !important;
+    }
+    .mode-tab:hover {
+      border-color: #5DCAA5 !important;
+      box-shadow: 0 0 15px rgba(93, 202, 165, 0.2) !important;
+      transform: translateY(-2px);
+    }
+    .mode-tab:active {
+      background: #1D9E75 !important;
+      color: white !important;
+    }
+
+    /* RUN BUTTON GLOW ANIMATION */
+    .run-btn {
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .run-btn::before {
+      content: '';
+      position: absolute;
+      top: -150%;
+      left: -150%;
+      width: 400%;
+      height: 400%;
+      background: conic-gradient(
+        from 0deg,
+        transparent 0% 70%,
+        #1D9E75 85%,
+        transparent 100%
+      );
+      animation: rotate-glow 4s linear infinite;
+      z-index: -2;
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .run-btn::after {
+      content: '';
+      position: absolute;
+      inset: 1.5px;
+      background: inherit;
+      border-radius: inherit;
+      z-index: -1;
+      pointer-events: none;
+    }
+    .run-btn:disabled::before {
+      animation: none;
+      display: none;
+    }
+    @keyframes rotate-glow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .run-btn:hover:not(:disabled) {
+      filter: brightness(1.1) !important;
+      box-shadow: 0 4px 20px rgba(29, 158, 117, 0.4) !important;
+      transform: translateY(-2px) !important;
+    }
+    .run-btn:active:not(:disabled) {
+      transform: scale(0.98) !important;
+      filter: brightness(0.9) !important;
+    }
+  </style>
+</head>
+<body>
+<div class="ambient-bg">
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+</div>
+<div class="app">
+<div class="topbar" style="background: #080808; backdrop-filter: none; -webkit-backdrop-filter: none; border-bottom: 1px solid rgba(255,255,255,0.06); box-shadow: 0 1px 0 rgba(29,158,117,0.15), 0 4px 24px rgba(0,0,0,0.6); padding-bottom: 20px;">
+<div class="topbar-title">
+  <div class="flex items-center gap-3">
+    <div aria-label="Logo" style="height: 38px; width: 76px; background-image: var(--brand-logo-url); background-size: contain; background-repeat: no-repeat; background-position: center; mix-blend-mode: screen;"></div>
+    <div class="flex items-baseline">
+      <span class="text-white font-semibold tracking-tight" style="font-size: 17px; line-height: 1;">Pic2Vid</span>
+      <span class="font-light ml-1" style="font-size: 17px; line-height: 1; color: rgb(104, 219, 174);">Studio</span>
+    </div>
+  </div>
+</div>
+<div class="topbar-badge flex items-center" id="serverStatus" style="color: rgb(255, 180, 171); background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.1);">offline</div>
+</div>
+<div class="section">
+<div class="mode-tabs">
+  <div class="mode-tab" id="tabSingle" onclick="setMode('single')">
+    <svg class="w-4 h-4 inline-block shrink-0" style="vertical-align: -2px; margin-right: 6px;" viewBox="0 0 122.88 91.27" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M87.29,16.88A11.35,11.35,0,1,1,75.94,28.23,11.35,11.35,0,0,1,87.29,16.88Zm27.33,74.39H8.26a8.27,8.27,0,0,1-5.83-2.44h0A8.24,8.24,0,0,1,0,83V8.26A8.26,8.26,0,0,1,2.42,2.42h0A8.26,8.26,0,0,1,8.26,0H114.62a8.26,8.26,0,0,1,5.83,2.43h0a8.26,8.26,0,0,1,2.42,5.84V83a8.24,8.24,0,0,1-2.42,5.83h0a8.27,8.27,0,0,1-5.83,2.44Zm-7.35-9.43L87.6,50.46a4.52,4.52,0,0,0-7.65,0L70.66,65.39,80.77,81.84H76.62l-27.57-44c-2.54-3.39-6.61-3.13-8.88,0l-27,44H9.42V9.42h104V81.84Z"/>
+    </svg>
+    Single
+  </div>
+
+  <div class="mode-tab active" id="tabBatch" onclick="setMode('batch')">
+    <svg class="w-4 h-4 inline-block shrink-0" style="vertical-align: -2px; margin-right: 6px;" viewBox="0 0 122.88 95.04" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M93.22,33.05a9.46,9.46,0,1,1-9.47,9.46,9.45,9.45,0,0,1,9.47-9.46Zm7.49-22.22v-3H7.86V74.32h4.43v7.86H6.89a6.87,6.87,0,0,1-4.86-2,6.81,6.81,0,0,1-2-4.85V6.89A6.9,6.9,0,0,1,6.89,0h94.79a6.9,6.9,0,0,1,6.89,6.89v3.94Zm9.16,76.36L93.47,61a3.76,3.76,0,0,0-6.37,0L79.36,73.47l8.42,13.72H84.32l-23-36.68a4.37,4.37,0,0,0-7.4,0L31.47,87.19H28.32V26.83H115V87.19ZM116,95H27.35a6.91,6.91,0,0,1-6.89-6.88V25.86A6.91,6.91,0,0,1,27.35,19H116a6.9,6.9,0,0,1,6.88,6.88v62.3A6.91,6.91,0,0,1,116,95Z"/>
+    </svg>
+    Batch
+  </div>
+</div>
+<div class="upload-area" id="uploadSingle" style="display: none;">
+  <input accept="image/*" id="fileInputSingle" onchange="handleSingleFile(this)" type="file">
+  
+  <div class="upload-icon-wrap flex items-center justify-center p-3.5">
+    <svg class="w-full h-full text-[#1D9E75]" viewBox="0 0 122.88 97.68" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path fill-rule="evenodd" clip-rule="evenodd" d="M0,0h122.88v97.68H0V0L0,0z M34.56,25.4c4.41,0,7.99,3.58,7.99,7.99c0,4.42-3.58,7.99-7.99,7.99 c-4.41,0-7.99-3.58-7.99-7.99C26.57,28.97,30.15,25.4,34.56,25.4L34.56,25.4z M68.2,59.7l15.99-27.64l16.99,42.96l-79.27,0v-5.33 l6.66-0.33l6.66-16.32l3.33,11.66h9.99l8.66-22.31L68.2,59.7L68.2,59.7z M9.13,8.09h104.63v81.49H9.13V8.09L9.13,8.09z"/>
+    </svg>
+  </div>
+  
+  <div class="upload-title">Upload product image</div>
+  <div class="upload-hint">Tap to select · PNG, JPG, WEBP</div>
+</div>
+<div class="upload-area" id="uploadBatch" style="display: block;" onclick="document.getElementById('fileInputBatch').click()">
+  <input accept="image/*" id="fileInputBatch" multiple="" onchange="handleBatchFiles(this)" type="file" style="display:none">
+
+  <div class="upload-icon-wrap flex items-center justify-center p-3.5">
+    <svg class="w-full h-full text-[#1D9E75]" viewBox="0 0 122.88 98.27" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4.84,27.31H90.76a4.77,4.77,0,0,1,3.4,1.41,4.84,4.84,0,0,1,1.41,3.4V93.47a4.75,4.75,0,0,1-1.41,3.39,1.36,1.36,0,0,1-.25.22,4.67,4.67,0,0,1-3.18,1.19H4.81A4.81,4.81,0,0,1,0,93.47V32.12a4.77,4.77,0,0,1,1.41-3.4,4.83,4.83,0,0,1,3.4-1.41ZM32.15,0h85.92a4.77,4.77,0,0,1,3.4,1.41,4.84,4.84,0,0,1,1.41,3.4V66.16a4.75,4.75,0,0,1-1.41,3.39,1.09,1.09,0,0,1-.25.22A4.67,4.67,0,0,1,118,71h-5.38V65.22h4.51V5.71H33.06v4.2H27.31V4.81a4.77,4.77,0,0,1,1.41-3.4A4.84,4.84,0,0,1,32.12,0ZM18.5,13.66h85.92a4.75,4.75,0,0,1,3.39,1.41,4.8,4.8,0,0,1,1.41,3.39V79.81a4.77,4.77,0,0,1-1.41,3.4,1.4,1.4,0,0,1-.25.22,4.67,4.67,0,0,1-3.18,1.19H99V78.88h4.51V19.37H19.4v4.2H13.65V18.46a4.81,4.81,0,0,1,4.81-4.8ZM24.68,44a6.9,6.9,0,1,1-6.89,6.89A6.89,6.89,0,0,1,24.68,44Zm29,29.59L67.49,49.71,82.14,86.77H13.77V82.18l5.74-.29,5.75-14.08,2.87,10.06h8.62l7.47-19.25L53.7,73.56ZM89.86,33H5.75V92.53H89.86V33Z"/>
+    </svg>
+  </div>
+
+  <div class="upload-title">Upload multiple images</div>
+  <div class="upload-hint">Select up to 20 images at once</div>
+</div>
+<div class="preview-wrap" id="previewWrap">
+<img alt="preview" id="previewImg" src="">
+<div class="preview-change" onclick="resetSingle()"><i class="ti ti-refresh" style="font-size:11px;margin-right:4px"></i>Change</div>
+</div>
+<div class="file-list" id="fileList" style="display: none;"></div>
+<div class="pipeline-track" id="pipelineTrack" style="display: none;">
+<div class="track-step">
+<div class="track-dot" id="s0"><i class="ti ti-upload dot-icon"></i></div>
+<div class="track-label" id="sl0">Upload</div>
+</div>
+<div class="track-line" id="l0"></div>
+<div class="track-step">
+<div class="track-dot" id="s1"><svg viewBox="0 0 65 65" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;flex-shrink:0"><defs><linearGradient id="gmt_grad" x1="18.447" y1="43.42" x2="52.153" y2="15.004" gradientUnits="userSpaceOnUse"><stop stop-color="#4893FC"/><stop offset=".27" stop-color="#4893FC"/><stop offset=".777" stop-color="#969DFF"/><stop offset="1" stop-color="#BD99FE"/></linearGradient></defs><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="url(#gmt_grad)"/></svg></div>
+<div class="track-label" id="sl1">Gemini</div>
+</div>
+<div class="track-line" id="l1"></div>
+<div class="track-step">
+<div class="track-dot" id="s2"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;flex-shrink:0"><defs><linearGradient id="meta_t_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_t_grad)"/></svg></div>
+<div class="track-label" id="sl2">Meta AI</div>
+</div>
+<div class="track-line" id="l2"></div>
+<div class="track-step">
+<div class="track-dot" id="s3"><i class="ti ti-download dot-icon"></i></div>
+<div class="track-label" id="sl3">Output</div>
+</div>
+</div>
+<div class="prompt-item">
+<div class="prompt-toggle" onclick="togglePrompt('g')">
+<div class="prompt-toggle-left"><span class="ptag ptag-g"><svg viewBox="0 0 65 65" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gm_grad" x1="18.447" y1="43.42" x2="52.153" y2="15.004" gradientUnits="userSpaceOnUse"><stop stop-color="#4893FC"/><stop offset=".27" stop-color="#4893FC"/><stop offset=".777" stop-color="#969DFF"/><stop offset="1" stop-color="#BD99FE"/></linearGradient></defs><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="url(#gm_grad)"/></svg>Gemini</span> Image prompt</div>
+<i class="ti ti-chevron-down prompt-arrow" id="gArrow"></i>
+</div>
+<div class="prompt-body" id="gBody">
+<textarea id="geminiPrompt" oninput="savePrompts()">Turn this image into a premium ecommerce product photo.
+
+Luxury background.
+Soft cinematic lighting.
+Ultra realistic.
+Professional advertising photography.</textarea>
+</div>
+</div>
+<div class="prompt-item" style="margin-bottom:24px">
+<div class="prompt-toggle" onclick="togglePrompt('m')">
+<div class="prompt-toggle-left"><span class="ptag ptag-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="meta_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_grad)"/></svg>Meta AI</span> Video prompt</div>
+<i class="ti ti-chevron-down prompt-arrow" id="mArrow"></i>
+</div>
+<div class="prompt-body" id="mBody">
+<div class="cat-select-wrap">
+  <select class="cat-select" id="catSelect">
+    <option value="0">Default Prompt</option>
+    <option value="1">Đồ gia dụng / Home appliance</option>
+    <option value="2">Nước hoa / Cosmetic / Beauty</option>
+    <option value="3">Đồ ăn / Food / Snack</option>
+    <option value="4">Đồ công nghệ / Gadget</option>
+    <option value="5">Thời trang / Quần áo</option>
+  </select>
+  <div class="custom-select" id="customCatSelect">
+    <div class="custom-select-trigger" onclick="toggleCatDropdown()">
+      <span id="customCatLabel">Default Prompt</span>
+      <i class="ti ti-chevron-down custom-select-arrow"></i>
+    </div>
+    <div class="custom-select-dropdown" id="customCatDropdown">
+      <div class="custom-select-option selected" onclick="pickCategory(0, this)">Default Prompt</div>
+      <div class="custom-select-option" onclick="pickCategory(1, this)">Đồ gia dụng / Home appliance</div>
+      <div class="custom-select-option" onclick="pickCategory(2, this)">Nước hoa / Cosmetic / Beauty</div>
+      <div class="custom-select-option" onclick="pickCategory(3, this)">Đồ ăn / Food / Snack</div>
+      <div class="custom-select-option" onclick="pickCategory(4, this)">Đồ công nghệ / Gadget</div>
+      <div class="custom-select-option" onclick="pickCategory(5, this)">Thời trang / Quần áo</div>
+    </div>
+  </div>
+</div>
+<textarea id="metaPrompt" oninput="deselectCategory(); savePrompts()">A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.</textarea>
+</div>
+</div>
+<div class="status-bar" id="statusBar" style="display: none;">
+<div class="status-dot pulse" id="statusDot" style="width:10px;height:10px;border-radius:50%;background:#1D9E75;box-shadow:0 0 10px #1D9E75"></div>
+<span class="" id="statusText">Processing...</span>
+</div>
+<div class="batch-progress" id="batchProgress" style="display: none;">
+<div class="flex justify-between text-[13px] text-[#aaa] font-bold mb-3">
+<span class="" id="batchProgressText">Processing...</span>
+<span class="" id="batchProgressCount">0/0</span>
+</div>
+<div class="batch-bar"><div class="batch-bar-fill" id="batchBarFill"></div></div>
+</div>
+<button class="run-btn" disabled="" id="runBtn" onclick="startPipeline()">
+<i class="ti ti-player-play"></i> Run pipeline
+    </button>
+<button class="dl-all-btn bg-[rgba(29,158,117,0.1)] text-[#1D9E75] border border-[rgba(29,158,117,0.3)] w-full p-4 rounded-[18px] font-bold hidden items-center justify-center gap-2 mb-5" id="dlAllBtn" onclick="downloadAll()" style="display: none;">
+<i class="ti ti-download"></i> Download all videos
+    </button>
+<button class="dl-all-btn bg-[rgba(255,180,171,0.05)] text-[#ffb4ab] border border-[rgba(255,180,171,0.2)] w-full p-4 rounded-[18px] font-bold hidden items-center justify-center gap-2 mb-5" id="retryFailedBtn" onclick="retryFailed()" style="display: none;">
+<i class="ti ti-refresh"></i> Retry failed images
+    </button>
+<div class="log-panel" id="logPanel" style="display: none;"></div>
+<div class="results-grid" id="resultsGrid" style="display: none;">
+<div class="result-card">
+<div class="result-card-top"><span class="ptag ptag-g">Photo</span></div>
+<div class="result-card-body p-3 min-h-[140px] flex items-center justify-center bg-black/20" id="geminiOut"><div class="text-[12px] text-[#666] font-semibold">Waiting...</div></div>
+<button class="w-full p-3 text-[11px] font-extrabold text-[#1D9E75] uppercase border-t border-white/5 hidden items-center justify-center gap-2 hover:bg-white/5" id="geminiDl"><i class="ti ti-download"></i> Save photo</button>
+</div>
+<div class="result-card">
+<div class="result-card-top"><span class="ptag ptag-m">Video</span></div>
+<div class="result-card-body p-3 min-h-[140px] flex items-center justify-center bg-black/20" id="metaOut"><div class="text-[12px] text-[#666] font-semibold">Waiting...</div></div>
+<button class="w-full p-3 text-[11px] font-extrabold text-[#1D9E75] uppercase border-t border-white/5 hidden items-center justify-center gap-2 hover:bg-white/5" id="metaDl"><i class="ti ti-download"></i> Save video</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+const BACKEND = '';
+let mode = 'single';
+let selectedFile = null;
+let selectedFiles = [];
+let jobId = null;
+let batchJobIds = [];
+let pollInterval = null;
+let batchPollInterval = null;
+let lastBatchResults = [];
+
+// Keep alive
+setInterval(() => { fetch(BACKEND + '/health').catch(() => {}); }, 30000);
+
+// Category prompts
+const CATEGORY_PROMPTS = [
+  `A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.`,
+  `A cinematic TikTok commercial for a modern home appliance. Clean minimalist home environment with soft natural lighting. Dynamic camera movement with smooth zoom-ins and close-up product shots. Realistic product textures and details preserved accurately. Modern aesthetic shadows, soft reflections, and subtle background motion. Premium commercial style, ultra realistic, 4k, vertical 9:16.`,
+  `A luxurious cinematic beauty commercial for a premium cosmetic product inside a modern aesthetic studio. Warm golden lighting reflecting beautifully on the product surface. Elegant slow-motion camera movement with macro close-up shots. Soft glossy shadows and dreamy luxury atmosphere. High-end beauty advertisement style, ultra realistic, 4k, vertical 9:16.`,
+  `A cinematic food commercial with ultra realistic food textures and rich delicious details. Warm restaurant-style lighting with authentic Asian food atmosphere. Dynamic close-up shots showing steam, crispy textures, sauce movement, and natural food motion. Visually appetizing TikTok advertising style with realistic colors, 4k, vertical 9:16.`,
+  `A futuristic cinematic tech commercial featuring a modern electronic gadget. Dark premium environment with dramatic lighting and sleek reflections. Fast camera movement with macro close-up product details and high-tech atmosphere. Premium technology advertisement style, ultra realistic, 4k, vertical 9:16.`,
+  `A trendy fashion TikTok commercial featuring stylish clothing in a clean modern studio environment. Dynamic cinematic camera movement with close-up fabric details and aesthetic lighting. Premium fashion advertisement atmosphere with realistic textures, visually attractive and modern, 4k, vertical 9:16.`
+];
+
+function selectCategory(val) {
+  document.getElementById('metaPrompt').value = CATEGORY_PROMPTS[parseInt(val)];
+}
+
+function deselectCategory() {
+  document.getElementById('catSelect').value = '0';
+  document.getElementById('metaPrompt').value = CATEGORY_PROMPTS[0];
+  // reset custom UI
+  const opts = document.querySelectorAll('.custom-select-option');
+  opts.forEach((o,i) => o.classList.toggle('selected', i===0));
+  document.getElementById('customCatLabel').textContent = 'Default Prompt';
+}
+
+function toggleCatDropdown() {
+  const trigger = document.querySelector('.custom-select-trigger');
+  const dropdown = document.getElementById('customCatDropdown');
+  const open = dropdown.classList.contains('open');
+  if (!open) {
+    const rect = trigger.getBoundingClientRect();
+    dropdown.style.left = rect.left + 'px';
+    dropdown.style.top = rect.bottom + 'px';
+    dropdown.style.width = rect.width + 'px';
+  }
+  dropdown.classList.toggle('open', !open);
+  trigger.classList.toggle('open', !open);
+}
+
+function pickCategory(val, el) {
+  document.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('customCatLabel').textContent = el.textContent;
+  document.getElementById('customCatDropdown').classList.remove('open');
+  document.querySelector('.custom-select-trigger').classList.remove('open');
+  selectCategory(val);
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#customCatSelect')) {
+    const dd = document.getElementById('customCatDropdown');
+    const tr = document.querySelector('.custom-select-trigger');
+    if (dd) dd.classList.remove('open');
+    if (tr) tr.classList.remove('open');
+  }
+});
+
+async function downloadAll() {
+  const btn = document.getElementById('dlAllBtn');
+  btn.innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Zipping...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(BACKEND + '/download-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobIds: batchJobIds })
+    });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'videos.zip'; a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { alert('Download failed: ' + e.message); }
+  btn.innerHTML = '<i class="ti ti-download"></i> Download all videos';
+  btn.disabled = false;
+}
+
+async function retryFailed() {
+  if (!lastBatchResults.length) return;
+  const failedFiles = lastBatchResults
+    .map((job, i) => job.step === 'error' ? selectedFiles[i] : null)
+    .filter(Boolean);
+  if (!failedFiles.length) return;
+  document.getElementById('retryFailedBtn').style.display = 'none';
+  const form = new FormData();
+  failedFiles.forEach(f => form.append('images', f));
+  form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
+  form.append('metaPrompt', document.getElementById('metaPrompt').value);
+  try {
+    const res = await fetch(BACKEND + '/batch', { method: 'POST', body: form });
+    const data = await res.json();
+    batchJobIds = [...batchJobIds, ...data.jobIds];
+    saveState();
+    document.getElementById('batchProgress').style.display = 'block';
+    document.getElementById('runBtn').disabled = true;
+    document.getElementById('runBtn').innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Running...';
+    batchPollInterval = setInterval(pollBatch, 3000);
+  } catch (e) { alert('Retry failed: ' + e.message); }
+}
+
+function saveState() {
+  try {
+    const state = {
+      mode,
+      jobIds: mode === 'batch' ? batchJobIds : (jobId ? [jobId] : []),
+      geminiPrompt: document.getElementById('geminiPrompt')?.value || '',
+      metaPrompt: document.getElementById('metaPrompt')?.value || '',
+      ts: Date.now()
+    };
+    if (state.jobIds.length) {
+      localStorage.setItem('ps_state', JSON.stringify(state));
+    }
+  } catch(_) {}
+}
+
+function savePrompts() {
+  try {
+    localStorage.setItem('ps_prompts', JSON.stringify({
+      geminiPrompt: document.getElementById('geminiPrompt')?.value || '',
+      metaPrompt: document.getElementById('metaPrompt')?.value || '',
+    }));
+  } catch(_) {}
+}
+
+function loadPrompts() {
+  try {
+    const saved = localStorage.getItem('ps_prompts');
+    if (!saved) return;
+    const { geminiPrompt, metaPrompt } = JSON.parse(saved);
+    if (geminiPrompt) document.getElementById('geminiPrompt').value = geminiPrompt;
+    if (metaPrompt) document.getElementById('metaPrompt').value = metaPrompt;
+  } catch(_) {}
+}
+
+function clearState() {
+  try { localStorage.removeItem('ps_state'); } catch(_) {}
+}
+
+async function restoreState() {
+  // Luôn restore prompts trước
+  loadPrompts();
+  try {
+    const saved = localStorage.getItem('ps_state');
+    if (!saved) return;
+    const { jobIds, mode: savedMode, geminiPrompt, metaPrompt, ts } = JSON.parse(saved);
+    if (!jobIds || !jobIds.length) return;
+
+    // Bỏ qua state cũ hơn 2 tiếng
+    if (ts && Date.now() - ts > 2 * 60 * 60 * 1000) { clearState(); return; }
+
+    // Restore prompts từ state nếu có
+    if (geminiPrompt) document.getElementById('geminiPrompt').value = geminiPrompt;
+    if (metaPrompt) document.getElementById('metaPrompt').value = metaPrompt;
+
+    const res = await fetch(BACKEND + '/status/' + jobIds[0]).catch(() => null);
+    if (!res || !res.ok) { clearState(); return; }
+    const job = await res.json();
+    if (job.step === 'not_found') { clearState(); return; }
+
+    // Nếu job đã done — hiển thị kết quả luôn không cần poll
+    if ((job.step === 'done' || job.step === 'meta_done' || job.step === '🎉 Done!') && job.videoUrl) {
+      setMode(savedMode || 'single');
+      document.getElementById('resultsGrid').style.display = 'grid';
+      if (job.enhancedImage) {
+        document.getElementById('geminiOut').innerHTML = `<img class="w-full rounded-xl" src="${job.enhancedImage}" alt="enhanced" />`;
+        document.getElementById('geminiDl').style.display = 'flex';
+        document.getElementById('geminiDl').onclick = () => dlFile(job.enhancedImage, 'enhanced.png');
+      }
+      document.getElementById('metaOut').innerHTML = `<video class="w-full rounded-xl" src="${job.videoUrl}" autoplay muted loop playsinline></video>`;
+      document.getElementById('metaDl').style.display = 'flex';
+      document.getElementById('metaDl').onclick = () => dlFile(job.videoUrl, 'product-video.mp4');
+      setStatus('Done! Your video is ready.', true);
+      resetBtn(true);
+      clearState();
+      return;
+    }
+
+    // Job vẫn đang chạy — tiếp tục poll
+    if (savedMode === 'single') {
+      jobId = jobIds[0];
+      setMode('single');
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('runBtn').innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Running...';
+      document.getElementById('resultsGrid').style.display = 'grid';
+      document.getElementById('geminiOut').innerHTML = '<div class="text-[12px] text-white/40">Reconnecting...</div>';
+      document.getElementById('metaOut').innerHTML = '<div class="text-[12px] text-white/40">Waiting...</div>';
+      setStatus('Reconnecting...');
+      saveState();
+      pollInterval = setInterval(pollSingle, 2500);
+    } else {
+      batchJobIds = jobIds;
+      setMode('batch');
+      document.getElementById('batchProgress').style.display = 'block';
+      document.getElementById('batchProgressText').textContent = 'Reconnecting...';
+      document.getElementById('runBtn').disabled = true;
+      document.getElementById('runBtn').innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Running...';
+      saveState();
+      batchPollInterval = setInterval(pollBatch, 3000);
+    }
+  } catch(_) { clearState(); }
+}
+
+// Init: đảm bảo button disabled đúng ngay từ đầu
+document.getElementById('runBtn').disabled = true;
+setMode('batch');
+
+fetch(BACKEND + '/health').then(r => r.json()).then(() => {
+  document.getElementById('serverStatus').textContent = 'online';
+  document.getElementById('serverStatus').style.color = '#1D9E75';
+  restoreState();
+}).catch(() => {
+  document.getElementById('serverStatus').textContent = 'offline';
+  document.getElementById('serverStatus').style.color = '#ffb4ab';
+});
+
+function setMode(m) {
+  mode = m;
+  
+  // 1. Toggle class active cho các Tab
+  document.getElementById('tabSingle').classList.toggle('active', m === 'single');
+  document.getElementById('tabBatch').classList.toggle('active', m === 'batch');
+  
+  // 2. Hiển thị đúng khu vực Upload tương ứng
+  document.getElementById('uploadSingle').style.display = m === 'single' ? 'block' : 'none';
+  document.getElementById('uploadBatch').style.display = m === 'batch' ? 'block' : 'none';
+  document.getElementById('pipelineTrack').style.display = m === 'single' ? 'flex' : 'none';
+  
+  // 3. Ẩn toàn bộ các thành phần kết quả/tiến độ cũ để tránh bị đè giao diện
+  document.getElementById('resultsGrid').style.display = 'none';
+  document.getElementById('logPanel').style.display = 'none';
+  document.getElementById('statusBar').style.display = 'none';
+  document.getElementById('batchProgress').style.display = 'none'; // Ẩn thanh tiến độ Batch cũ
+  document.getElementById('dlAllBtn').style.display = 'none'; // Ẩn nút Download All cũ
+  if (document.getElementById('retryFailedBtn')) {
+    document.getElementById('retryFailedBtn').style.display = 'none'; // Ẩn nút Retry cũ
+  }
+
+  // 4. Kiểm tra và hiển thị danh sách file nếu chuyển về Batch và đã có file trước đó
+  if (m === 'batch') {
+    if (selectedFiles && selectedFiles.length > 0) {
+      document.getElementById('fileList').style.display = 'block';
+      document.getElementById('runBtn').disabled = false;
+    } else {
+      document.getElementById('fileList').style.display = 'none';
+      document.getElementById('runBtn').disabled = true;
+      resetBtn(false); // Trả nút về trạng thái "Run pipeline" ban đầu
+    }
+  } else {
+    // Nếu chuyển về Single, ẩn danh sách file của Batch đi
+    document.getElementById('fileList').style.display = 'none';
+    // Chỉ enable nếu đã có file, không thì luôn disable
+    const hasFile = !!selectedFile;
+    document.getElementById('runBtn').disabled = !hasFile;
+    if (!hasFile) resetBtn(false);
+  }
+  
+  resetSteps();
+}
+
+function handleSingleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedFile = file;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('previewImg').src = e.target.result;
+    document.getElementById('previewWrap').style.display = 'block';
+    document.getElementById('uploadSingle').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  document.getElementById('runBtn').disabled = false;
+  setStep(0, 'done');
+}
+
+function resetSingle() {
+  selectedFile = null;
+  document.getElementById('previewWrap').style.display = 'none';
+  document.getElementById('uploadSingle').style.display = 'block';
+  document.getElementById('fileInputSingle').value = '';
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resultsGrid').style.display = 'none';
+  document.getElementById('logPanel').style.display = 'none';
+  document.getElementById('statusBar').style.display = 'none';
+  resetSteps();
+  if (pollInterval) clearInterval(pollInterval);
+}
+
+function handleBatchFiles(input) {
+  selectedFiles = Array.from(input.files);
+  if (!selectedFiles.length) return;
+  const list = document.getElementById('fileList');
+  list.innerHTML = '';
+  list.style.display = 'block';
+  selectedFiles.forEach((file, i) => {
+    const item = document.createElement('div');
+    item.className = 'file-item';
+    item.id = `file-item-${i}`;
+    item.innerHTML = `
+      <img class="w-[52px] h-[52px] rounded-[10px] object-cover bg-black/20 shrink-0" id="file-thumb-${i}" src="" alt="" />
+      <div class="flex-1 min-w-0">
+        <div class="text-[14px] font-semibold text-white truncate">${file.name}</div>
+        <div class="text-[12px] text-white/60 mt-1 font-medium" id="fstatus-${i}">Queued</div>
+        <div class="w-full h-1 bg-white/5 rounded-full mt-2 overflow-hidden"><div class="h-full bg-[#1D9E75] w-0 transition-all duration-400" id="fprog-${i}"></div></div>
+      </div>
+      <i class="ti ti-download text-[#1D9E75] text-[22px] shrink-0 cursor-pointer hidden" id="fdl-${i}" title="Download video"></i>
+    `;
+    list.appendChild(item);
+    const reader = new FileReader();
+    reader.onload = (f => e => { document.getElementById('file-thumb-' + f).src = e.target.result; })(i);
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('runBtn').disabled = false;
+}
+
+function togglePrompt(type) {
+  const body = document.getElementById(type + 'Body');
+  const arrow = document.getElementById(type + 'Arrow');
+  const toggle = arrow.closest('.prompt-item');
+  const open = body.style.display === 'block';
+  body.style.display = open ? 'none' : 'block';
+  arrow.style.transform = open ? '' : 'rotate(180deg)';
+  toggle.classList.toggle('prompt-item-open', !open);
+}
+
+function setStep(i, state) {
+  document.getElementById('s' + i).className = 'track-dot ' + (state || '');
+  document.getElementById('sl' + i).className = 'track-label ' + (state || '');
+  if (i > 0) {
+    const line = document.getElementById('l' + (i-1));
+    if (state === 'done' || state === 'active') line.classList.add('lit');
+  }
+}
+function resetSteps() {
+  [0,1,2,3].forEach(i => {
+    document.getElementById('s'+i).className = 'track-dot';
+    document.getElementById('sl'+i).className = 'track-label';
+    if (i < 3) document.getElementById('l'+i).classList.remove('lit');
+  });
+}
+
+function log(msg, type) {
+  const panel = document.getElementById('logPanel');
+  panel.style.display = 'block';
+  const line = document.createElement('div');
+  if (type === 'err') line.style.color = '#ffb4ab';
+  else if (type === 'info') line.style.opacity = '0.9';
+  line.textContent = msg;
+  panel.appendChild(line);
+  panel.scrollTop = panel.scrollHeight;
+}
+
+function setStatus(msg, stopped) {
+  const bar = document.getElementById('statusBar');
+  bar.style.display = 'flex';
+  document.getElementById('statusText').textContent = msg;
+  if (stopped) document.getElementById('statusDot').classList.remove('pulse');
+}
+
+async function startPipeline() {
+  if (mode === 'single') await startSingle();
+  else await startBatch();
+}
+
+async function startSingle() {
+  if (!selectedFile) return;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBtn').innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Running...';
+  document.getElementById('logPanel').innerHTML = '';
+  document.getElementById('resultsGrid').style.display = 'grid';
+  document.getElementById('geminiOut').innerHTML = '<div class="text-[12px] text-white/50">Processing...</div>';
+  document.getElementById('metaOut').innerHTML = '<div class="text-[12px] text-white/50">Waiting...</div>';
+  document.getElementById('geminiDl').style.display = 'none';
+  document.getElementById('metaDl').style.display = 'none';
+  resetSteps();
+  setStep(0, 'done');
+  setStep(1, 'active');
+  setStatus('Sending to Gemini...');
+  const form = new FormData();
+  form.append('image', selectedFile);
+  form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
+  form.append('metaPrompt', document.getElementById('metaPrompt').value);
+  try {
+    const res = await fetch(BACKEND + '/start', { method: 'POST', body: form });
+    if (!res.ok) throw new Error('Server error');
+    const data = await res.json();
+    jobId = data.jobId;
+    saveState();
+    pollInterval = setInterval(pollSingle, 2500);
+  } catch (e) {
+    log('Cannot connect: ' + e.message, 'err');
+    setStatus('Failed.', true);
+    resetBtn();
+  }
+}
+
+async function pollSingle() {
+  try {
+    const res = await fetch(BACKEND + '/status/' + jobId);
+    const data = await res.json();
+    
+    // 1. Cập nhật Log Panel dữ liệu từ Backend
+    if (data.logs) {
+      document.getElementById('logPanel').innerHTML = '';
+      data.logs.forEach(l => log(l, l.includes('❌') ? 'err' : (l.includes('🚀') || l.includes('⏳')) ? 'info' : ''));
+    }
+
+    // --- LOGIC CẬP NHẬT TRẠNG THÁI PIPELINE ---
+    
+    // Bước 0: Đang upload hoặc khởi động
+    if (data.step === 'queued' || data.step === 'running') {
+      setStep(0, 'active');
+    }
+
+    // Bước 1: Gemini đang xử lý phần ảnh nâng cao
+    if (data.step === 'gemini_running') {
+      setStep(0, 'done');
+      setStep(1, 'active');
+    }
+    
+    // Khi Gemini đã xong và đang chuyển sang Meta AI chạy
+    if ((data.step === 'gemini_done' || data.step === 'meta_running') && data.enhancedImage) {
+      setStep(0, 'done');
+      setStep(1, 'done');  // Xanh đậm rực rỡ cho bước Gemini vì đã hoàn thành!
+      setStep(2, 'active'); // Nhấp nháy/sáng nhẹ cho Meta AI vì đang chạy video
+      
+      setStatus('Gemini done — generating video...');
+      document.getElementById('geminiOut').innerHTML = `<img class="w-full rounded-xl" src="${data.enhancedImage}" alt="enhanced" />`;
+      document.getElementById('geminiDl').style.display = 'flex';
+      document.getElementById('geminiDl').onclick = () => dlFile(data.enhancedImage, 'enhanced.png');
+    }
+
+    // Bước 2 & 3: Hoàn thành Meta AI và xuất Output video
+    if ((data.step === 'meta_done' || data.step === 'done' || data.step === '🎉 Done!') && data.videoUrl) {
+      setStep(0, 'done');
+      setStep(1, 'done');
+      setStep(2, 'done'); // Xanh đậm rực rỡ cho Meta AI
+      setStep(3, 'done'); // Xanh đậm rực rỡ cho Output luôn
+      
+      setStatus('Done! Your video is ready.', true);
+      document.getElementById('metaOut').innerHTML = `<video class="w-full rounded-xl" src="${data.videoUrl}" autoplay muted loop playsinline></video>`;
+      document.getElementById('metaDl').style.display = 'flex';
+      document.getElementById('metaDl').onclick = () => dlFile(data.videoUrl, 'product-video.mp4');
+      
+      clearInterval(pollInterval);
+      clearState();
+      resetBtn(true);
+    }
+
+    // Xử lý khi có lỗi xảy ra giữa chừng
+    if (data.step === 'error') {
+      log('Error: ' + data.error, 'err');
+      setStatus('Failed.', true);
+      clearInterval(pollInterval);
+      resetBtn();
+    }
+  } catch (_) {}
+}
+
+async function startBatch() {
+  if (!selectedFiles.length) return;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('runBtn').innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Running...';
+  document.getElementById('batchProgress').style.display = 'block';
+  document.getElementById('batchProgressCount').textContent = `0/${selectedFiles.length}`;
+  document.getElementById('batchProgressText').textContent = 'Starting...';
+  const form = new FormData();
+  selectedFiles.forEach(f => form.append('images', f));
+  form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
+  form.append('metaPrompt', document.getElementById('metaPrompt').value);
+  try {
+    const res = await fetch(BACKEND + '/batch', { method: 'POST', body: form });
+    const data = await res.json();
+    batchJobIds = data.jobIds;
+    saveState();
+    batchPollInterval = setInterval(pollBatch, 3000);
+  } catch (e) {
+    document.getElementById('batchProgressText').textContent = 'Failed';
+    resetBtn();
+  }
+}
+
+async function pollBatch() {
+  try {
+    const res = await fetch(BACKEND + '/batch-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobIds: batchJobIds })
+    });
+    const results = await res.json();
+    lastBatchResults = results;
+    let done = 0;
+    results.forEach((job, i) => {
+      const statusEl = document.getElementById(`fstatus-${i}`);
+      const progEl = document.getElementById(`fprog-${i}`);
+      const dlEl = document.getElementById(`fdl-${i}`);
+      if (!statusEl) return;
+      if (job.step === 'queued') { statusEl.textContent = 'Queued'; progEl.style.width = '0%'; }
+      else if (job.step === 'running' || job.step === 'gemini_running') { statusEl.textContent = 'Enhancing...'; statusEl.classList.add('text-[#1D9E75]'); progEl.style.width = '33%'; }
+      else if (job.step === 'gemini_done' || job.step === 'meta_running') { statusEl.textContent = 'Generating...'; progEl.style.width = '66%'; }
+      else if (job.step === 'meta_done') {
+        statusEl.textContent = 'Done ✓'; statusEl.classList.add('text-[#1D9E75]'); progEl.style.width = '100%';
+        done++;
+        if (job.videoUrl) { dlEl.style.display = 'block'; dlEl.onclick = () => dlFile(job.videoUrl, `video_${i+1}.mp4`); }
+      }
+      else if (job.step === 'error') { statusEl.textContent = '❌ Error'; statusEl.classList.add('text-[#ffb4ab]'); progEl.style.width = '100%'; progEl.style.background = '#ffb4ab'; done++; }
+    });
+    document.getElementById('batchProgressCount').textContent = `${done}/${batchJobIds.length}`;
+    document.getElementById('batchProgressText').textContent = done === batchJobIds.length ? 'All done!' : `Processing... ${done} of ${batchJobIds.length}`;
+    document.getElementById('batchBarFill').style.width = `${(done / batchJobIds.length) * 100}%`;
+    if (done === batchJobIds.length) {
+      clearInterval(batchPollInterval);
+      clearState();
+      resetBtn(true);
+      if (results.some(j => j.videoUrl)) document.getElementById('dlAllBtn').style.display = 'flex';
+      if (results.some(j => j.step === 'error')) document.getElementById('retryFailedBtn').style.display = 'flex';
+    }
+  } catch (_) {}
+}
+
+function dlFile(url, name) {
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+}
+
+function resetBtn(done) {
+  const btn = document.getElementById('runBtn');
+  // Chỉ enable nếu done=true (đã chạy xong), hoặc có file tương ứng với mode hiện tại
+  const hasFile = mode === 'batch' ? selectedFiles.length > 0 : !!selectedFile;
+  btn.disabled = done ? false : !hasFile;
+  btn.innerHTML = done ? '<i class="ti ti-refresh"></i> Run again' : '<i class="ti ti-player-play"></i> Run pipeline';
+}
+</script>
+</body></html>
