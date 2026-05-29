@@ -5,66 +5,79 @@
 <h1 align="center">🎬 Pic2Vid Studio</h1>
 
 <p align="center">
-  Biến ảnh sản phẩm thành video TikTok tự động — không cần kỹ năng edit, không cần biết AI.
+  Turn product photos into TikTok-style videos automatically — no editing skills or AI knowledge required.
 </p>
 
 <p align="center">
-  <a href="https://ngkin01.github.io/Pic2Vid-Studio/">🌐 Xem Demo Giao Diện</a>
+  <a href="https://ngkin01.github.io/Pic2Vid-Studio/">🌐 Live Demo</a>
 </p>
 
 ---
 
-## ✨ Tính năng
+## ✨ Features
 
-- 📸 **Ảnh → Ảnh đẹp hơn**: Đưa ảnh sản phẩm vào Gemini AI để tự động tạo ra ảnh chất lượng cao hơn
-- 🎥 **Ảnh → Video TikTok**: Từ ảnh đó đưa vào Meta AI để tự động tạo video
-- 🖥️ Hỗ trợ **Windows** và **macOS**
-- ⚡ Giao diện đơn giản, dễ dùng — không cần biết kỹ thuật
+- 📸 **Photo Enhancement with AI**  
+  Upload a product image and let Gemini AI automatically generate a cleaner, higher-quality version.
 
----
+- 🎥 **Image to TikTok Video**  
+  Convert enhanced product images into short-form videos using Meta AI.
 
-## 📦 Phiên bản
+- 🖥️ **Cross-Platform Support**  
+  Available for both Windows and macOS.
 
-| Phiên bản | Hệ điều hành |
-|-----------|-------------|
-| `Pic2Vid Window` | Windows 10 / 11 |
-| `Pic2Vid MacOS` | macOS |
+- ⚡ **Simple & Beginner-Friendly UI**  
+  Easy to use with no technical experience required.
 
 ---
 
-## 🚀 Cài đặt nhanh (Windows)
+## 📦 Versions
 
-### Yêu cầu
-- Windows 10 hoặc 11
-- Tài khoản **Google** (để dùng Gemini)
-- Tài khoản **Facebook** (để dùng Meta AI)
-- **Google Chrome** đã cài sẵn
-
-### Các bước
-
-**1.** Tải và cài [Node.js LTS](https://nodejs.org)
-
-**2.** Giải nén folder `Pic2Vid Window` ra Desktop
-
-**3.** Chuột phải vào `SETUP.bat` → **Run as administrator** *(chỉ làm 1 lần)*
-
-**4.** Làm theo hướng dẫn đăng nhập Gemini & Meta AI trên màn hình
-
-**5.** Sau đó mỗi lần dùng chỉ cần double-click `START.bat` là xong!
-
-> 💡 Giữ cửa sổ đen mở trong khi dùng. Đóng cửa sổ đen là ứng dụng tắt.
+| Version | Operating System |
+|----------|------------------|
+| `Pic2Vid Windows` | Windows 10 / 11 |
+| `Pic2Vid macOS` | macOS |
 
 ---
 
-## 🛠️ Công nghệ sử dụng
+## 🚀 Quick Setup (Windows)
+
+### Requirements
+
+- Windows 10 or 11
+- A **Google account** (for Gemini AI)
+- A **Facebook account** (for Meta AI)
+- **Google Chrome** installed
+
+---
+
+### Installation Steps
+
+**1.** Download and install the latest LTS version of Node.js  
+👉 https://nodejs.org
+
+**2.** Extract the `Pic2Vid Windows` folder to your Desktop
+
+**3.** Right-click `SETUP.bat` → select **Run as administrator**  
+*(Only required for the first setup)*
+
+**4.** Follow the on-screen instructions to log into Gemini AI and Meta AI
+
+**5.** After setup, simply double-click `START.bat` whenever you want to launch the app
+
+> 💡 Keep the terminal window open while using the application. Closing it will stop the app.
+
+---
+
+## 🛠️ Built With
 
 - **Node.js** — Backend server
-- **HTML / CSS / JavaScript** — Giao diện
-- **Gemini AI** — Tạo ảnh sản phẩm đẹp hơn
-- **Meta AI** — Tạo video từ ảnh
+- **HTML / CSS / JavaScript** — Frontend UI
+- **Gemini AI** — AI-powered image enhancement
+- **Meta AI** — AI video generation
 
 ---
 
-## 👤 Tác giả
+## 👤 Author
 
-**Tommy Nguyen** · [@ngkin01](https://github.com/ngkin01)
+**Tommy Nguyen**  
+GitHub: https://github.com/ngkin01
