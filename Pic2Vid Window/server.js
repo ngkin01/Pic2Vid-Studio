@@ -147,7 +147,6 @@ const sharedCtx = { gemini: null, meta: null };
 const ctxLock   = { gemini: false, meta: false };
 
 async function getSharedPage(service) {
-  // service = "gemini" | "meta"
   const profileDir  = service === "gemini" ? "profile_gemini" : "profile_meta";
   const cookieKey   = service === "gemini" ? "COOKIES_GEMINI" : "COOKIES_META";
 
@@ -203,7 +202,6 @@ async function closeSharedCtx(service) {
 
 // Clear cache của browser profile — CHỈ xóa cache, KHÔNG đụng cookies/session
 function clearBrowserCache(profileDir) {
-  // SAFE: chỉ xóa cache thuần, không đụng Network/Sessions/Cookies/Login Data
   const safeCacheFolders = [
     "Cache", "Cache_Data", "Code Cache", "GPUCache",
     "DawnCache", "ShaderCache", "blob_storage"
@@ -220,7 +218,6 @@ function clearBrowserCache(profileDir) {
       } catch (_) {}
     }
   }
-  // Top-level cache only (safe)
   const topPath = path.join(__dirname, profileDir);
   for (const folder of ["Cache", "Code Cache", "GPUCache", "ShaderCache"]) {
     const folderPath = path.join(topPath, folder);
@@ -257,6 +254,7 @@ async function runGemini(jobId, imagePath, prompt) {
     log(jobId, "✅ Image uploaded");
     await page.waitForTimeout(5000);
 
+    // Tìm prompt box
     let promptBox = null;
     for (let i = 0; i < 30; i++) {
       let box = await page.$("textarea");
@@ -266,185 +264,105 @@ async function runGemini(jobId, imagePath, prompt) {
       await page.waitForTimeout(2000);
     }
     if (!promptBox) throw new Error("Prompt box not found");
+
+    // Snapshot ảnh hiện có TRƯỚC khi gửi prompt
+    const existingImgSrcs = new Set();
+    for (const img of await page.$$("img")) {
+      try {
+        const src = await img.getAttribute("src");
+        if (src) existingImgSrcs.add(src);
+      } catch (_) {}
+    }
+
     await promptBox.fill(prompt);
     await promptBox.press("Enter");
-
     log(jobId, "⏳ Waiting for Gemini to generate image...");
 
-    // Poll tối đa 4 phút
-    // Logic: chờ DOM stable 2 lần liên tiếp (10s không đổi) VÀ có ảnh > 20000px²
-    let generatedImg = null;
-    let lastHtml = 0;
-    let stableCount = 0;
-    let smallImageCount = 0;
-
-    for (let attempt = 0; attempt < 18; attempt++) {
-      await page.waitForTimeout(5000);
-
-      // Check DOM stable — KHÔNG reset khi thấy ảnh nhỏ
-      const currentHtml = await page.evaluate(() => document.body.innerHTML.length);
-      if (currentHtml === lastHtml) {
-        stableCount++;
-      } else {
-        stableCount = 0;
-        lastHtml = currentHtml;
-      }
-
-      // Tìm ảnh cuối cùng visible có size hợp lý
-      const allImgs = await page.$$("img");
-      let candidate = null;
-      let candidateArea = 0;
-      for (let i = allImgs.length - 1; i >= 0; i--) {
+    // Poll ảnh MỚI (max 2.5 phút, poll mỗi 3s)
+    // Không phụ thuộc UI toolbar hay download button — bền với mọi thay đổi UI Gemini
+    let largestImg = null;
+    let largestArea = 0;
+    for (let attempt = 0; attempt < 50; attempt++) {
+      await page.waitForTimeout(3000);
+      largestImg = null;
+      largestArea = 0;
+      for (const img of await page.$$("img")) {
         try {
-          const box = await allImgs[i].boundingBox();
-          const visible = await allImgs[i].isVisible().catch(() => false);
-          if (visible && box && box.width > 100 && box.height > 100) {
-            candidate = allImgs[i];
-            candidateArea = box.width * box.height;
-            break;
+          const src = await img.getAttribute("src");
+          if (src && existingImgSrcs.has(src)) continue; // bỏ qua ảnh cũ
+          const box = await img.boundingBox();
+          // Ảnh generated phải có cả width VÀ height > 200px
+          if (!box || box.width < 200 || box.height < 200) continue;
+          const area = box.width * box.height;
+          if (area > largestArea) {
+            largestArea = area;
+            largestImg = img;
           }
         } catch (_) {}
       }
-
-      if (candidate && candidateArea > 20000) {
-        // Ảnh đủ lớn — nếu DOM đã stable thì dừng
-        if (stableCount >= 1) {
-          const cBox = await candidate.boundingBox().catch(() => null);
-          generatedImg = candidate;
-          log(jobId, `✅ Image found after ${(attempt+1)*5}s (${Math.round(cBox?.width||0)}x${Math.round(cBox?.height||0)})`);
-          break;
-        }
-        // DOM chưa stable — chờ thêm
-        log(jobId, `⏳ Image found but DOM still changing... (${(attempt+1)*5}s)`);
-      } else if (candidate && candidateArea <= 20000) {
-        // Ảnh nhỏ (thumbnail 112x112) — Gemini chưa xong, chờ tiếp
-        smallImageCount++;
-        if (smallImageCount % 6 === 0) {
-          log(jobId, `⏳ Found image but too small (${Math.round(Math.sqrt(candidateArea))}px) — Gemini still generating... (${(attempt+1)*5}s)`);
-        }
-      } else {
-        log(jobId, `⏳ Waiting for image... (${(attempt+1)*5}s)`);
+      if (largestImg && largestArea > 80000) {
+        log(jobId, `✅ Image generated (${(attempt + 1) * 3}s)`);
+        break;
       }
+      if (attempt % 10 === 0 && attempt > 0) log(jobId, `⏳ Still waiting... (${attempt * 3}s)`);
+      largestImg = null;
     }
 
-    if (!generatedImg) throw new Error("Generated image not found after 1.5 minutes");
+    if (!largestImg) throw new Error("Generated image not found after 2.5 minutes");
 
-    const imgBox = await generatedImg.boundingBox().catch(() => null);
-    if (!imgBox) throw new Error("Image element became stale after detection");
-    log(jobId, `📐 Found image ${Math.round(imgBox.width)}x${Math.round(imgBox.height)}`);
-    let largestImg = generatedImg;
+    const imgBox = await largestImg.boundingBox();
+    log(jobId, `📐 Image ${Math.round(imgBox.width)}x${Math.round(imgBox.height)}`);
 
-    // Scroll ảnh vào viewport
-    await generatedImg.scrollIntoViewIfNeeded().catch(() => {});
-    await page.waitForTimeout(1000);
-
-    // Hover vào giữa ảnh trước
-    await page.mouse.move(imgBox.x + imgBox.width / 2, imgBox.y + imgBox.height / 2).catch(() => {});
-    await page.waitForTimeout(1500);
-
-    // Hover vào góc trên phải nơi có 3 nút toolbar
-    await page.mouse.move(imgBox.x + imgBox.width - 40, imgBox.y + 40).catch(() => {});
-    await page.waitForTimeout(2000);
-
-    // Debug: log tất cả button visible trên trang
-    const allVisibleBtns = await page.$$("button");
-    const btnDebug = [];
-    for (const btn of allVisibleBtns) {
-      try {
-        const visible = await btn.isVisible().catch(() => false);
-        if (!visible) continue;
-        const aria = await btn.getAttribute("aria-label") || "";
-        const title = await btn.getAttribute("title") || "";
-        const text = await btn.innerText().catch(() => "");
-        const bBox = await btn.boundingBox().catch(() => null);
-        btnDebug.push(`[${aria}|${title}|${text.slice(0,20)}] @ ${bBox ? Math.round(bBox.x)+','+Math.round(bBox.y) : 'no-box'}`);
-      } catch (_) {}
-    }
-    log(jobId, `🔍 Visible buttons: ${btnDebug.slice(0,10).join(' | ')}`);
-
-    // Tìm download button — thử nhiều cách
-    let downloadBtn = null;
-
-    // Cách 1: aria-label hoặc title chứa download
-    for (const btn of await page.$$("button")) {
-      try {
-        const aria = (await btn.getAttribute("aria-label") || "").toLowerCase();
-        const title = (await btn.getAttribute("title") || "").toLowerCase();
-        if (aria.includes("download") || title.includes("download")) {
-          const visible = await btn.isVisible().catch(() => false);
-          if (visible) { downloadBtn = btn; break; }
-        }
-      } catch (_) {}
-    }
-
-    // Cách 2: toolbar hiện 3 nút — lấy nút cuối cùng (download là nút thứ 3)
-    if (!downloadBtn) {
-      // Tìm các button visible nằm trong vùng góc trên phải của ảnh
-      const allBtns = await page.$$("button");
-      const nearBtns = [];
-      for (const btn of allBtns) {
-        try {
-          const bBox = await btn.boundingBox();
-          if (!bBox) continue;
-          const visible = await btn.isVisible().catch(() => false);
-          if (!visible) continue;
-          // Button nằm trong vùng toolbar của ảnh (góc trên phải)
-          if (
-            bBox.x > imgBox.x + imgBox.width * 0.5 &&
-            bBox.y < imgBox.y + imgBox.height * 0.3 &&
-            bBox.x < imgBox.x + imgBox.width + 20
-          ) {
-            nearBtns.push({ btn, x: bBox.x });
-          }
-        } catch (_) {}
-      }
-      // Sort theo x, lấy nút ngoài cùng phải (download)
-      if (nearBtns.length > 0) {
-        nearBtns.sort((a, b) => b.x - a.x);
-        downloadBtn = nearBtns[0].btn;
-        log(jobId, `🎯 Found toolbar button (${nearBtns.length} buttons near image)`);
-      }
-    }
-
+    const imgSrc = await largestImg.getAttribute("src");
     const outPath = path.join(__dirname, "outputs", `${jobId}_enhanced.png`);
     let saved = false;
 
-    // Cách 0: lấy src ảnh rồi fetch trực tiếp — không cần click UI
-    try {
-      const imgSrc = await generatedImg.evaluate(el =>
-        el.src || el.getAttribute("data-src") || (el.srcset || "").split(",")[0].trim().split(" ")[0] || ""
-      ).catch(() => "");
-      if (imgSrc && imgSrc.startsWith("http")) {
-        const buf = await page.evaluate(async (url) => {
+    // Method 1: fetch src trực tiếp (nhanh nhất, không cần click UI)
+    if (!saved && imgSrc && (imgSrc.startsWith("http") || imgSrc.startsWith("data:"))) {
+      try {
+        const imgBuffer = await page.evaluate(async (url) => {
           const r = await fetch(url, { credentials: "include" });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
           const ab = await r.arrayBuffer();
           return Array.from(new Uint8Array(ab));
         }, imgSrc);
-        fs.writeFileSync(outPath, Buffer.from(buf));
-        log(jobId, "✅ Enhanced image saved (direct fetch)");
-        saved = true;
-      }
-    } catch (e) {
-      log(jobId, `⚠️ Direct fetch failed: ${e.message}`);
-    }
-
-    // Cách 1: click download button nếu tìm được
-    if (!saved && downloadBtn) {
-      try {
-        log(jobId, "📥 Trying download button...");
-        const dlPromise = page.waitForEvent("download", { timeout: 30000 });
-        await downloadBtn.click();
-        const dl = await dlPromise;
-        await dl.saveAs(outPath);
-        log(jobId, "✅ Enhanced image saved (download button)");
+        fs.writeFileSync(outPath, Buffer.from(imgBuffer));
+        log(jobId, `✅ Image saved (fetch, ${(imgBuffer.length / 1024).toFixed(0)}KB)`);
         saved = true;
       } catch (e) {
-        log(jobId, `⚠️ Download button failed: ${e.message}`);
+        log(jobId, `⚠️ Fetch failed: ${e.message.slice(0, 50)}`);
       }
     }
 
-    if (!saved) throw new Error("Could not download enhanced image — all methods failed");
+    // Method 2: canvas toDataURL (hoạt động với blob: và mọi ảnh visible)
+    if (!saved) {
+      try {
+        const base64 = await page.evaluate((imgEl) => {
+          return new Promise((resolve, reject) => {
+            const canvas = document.createElement("canvas");
+            canvas.width = imgEl.naturalWidth || imgEl.width;
+            canvas.height = imgEl.naturalHeight || imgEl.height;
+            const ctx2d = canvas.getContext("2d");
+            ctx2d.drawImage(imgEl, 0, 0);
+            resolve(canvas.toDataURL("image/png").split(",")[1]);
+          });
+        }, largestImg);
+        fs.writeFileSync(outPath, Buffer.from(base64, "base64"));
+        const size = fs.statSync(outPath).size;
+        log(jobId, `✅ Image saved (canvas, ${(size / 1024).toFixed(0)}KB)`);
+        saved = true;
+      } catch (e) {
+        log(jobId, `⚠️ Canvas failed: ${e.message.slice(0, 50)}`);
+      }
+    }
+
+    // Method 3: screenshot element (last resort)
+    if (!saved) {
+      await largestImg.screenshot({ path: outPath });
+      const size = fs.statSync(outPath).size;
+      log(jobId, `✅ Image saved (screenshot, ${(size / 1024).toFixed(0)}KB)`);
+    }
+
     return `/outputs/${jobId}_enhanced.png`;
   } finally {
     await page.close().catch(() => {});
@@ -495,7 +413,7 @@ async function runMetaAI(jobId, imagePath, prompt) {
         if (href && href.includes(".mp4")) { videoUrl = href; break; }
       }
       if (videoUrl) break;
-      if (i % 6 === 0) log(jobId, `⏳ Still generating... (${Math.round(i*5/60)} min)`);
+      if (i % 6 === 0) log(jobId, `⏳ Still generating... (${Math.round(i * 5 / 60)} min)`);
     }
 
     if (!videoUrl) {
@@ -560,7 +478,7 @@ app.post("/batch", upload.array("images", 20), (req, res) => {
     return jobId;
   });
 
-  processGeminiQueue(); // kick off Gemini queue
+  processGeminiQueue();
   res.json({ jobIds, total: jobIds.length });
 });
 
