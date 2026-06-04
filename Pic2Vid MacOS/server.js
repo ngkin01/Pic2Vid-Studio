@@ -92,8 +92,14 @@ function processGeminiQueue() {
           update(task.jobId, { step: "error", error: err.message });
         }
       })
-      .finally(() => {
+      .finally(async () => {
         geminiActive--;
+        // Khi Gemini queue trong -> dong context, clear cache, mo lai
+        if (geminiQueue.length === 0 && geminiActive === 0) {
+          if (geminiCtx) { await geminiCtx.close().catch(() => {}); geminiCtx = null; }
+          clearBrowserCache("profile_gemini");
+          await getContext("profile_gemini", "COOKIES_GEMINI").catch(() => {});
+        }
         processGeminiQueue();
       });
   }
@@ -123,9 +129,15 @@ function processMetaQueue() {
         }
         update(task.jobId, { step: "error", error: err.message });
       })
-      .finally(() => {
+      .finally(async () => {
         metaActive--;
-        processMetaQueue(); // pick up next
+        // Khi Meta AI queue trong -> dong context, clear cache, mo lai
+        if (metaQueue.length === 0 && metaActive === 0) {
+          if (metaCtx) { await metaCtx.close().catch(() => {}); metaCtx = null; }
+          clearBrowserCache("profile_meta");
+          await getContext("profile_meta", "COOKIES_META").catch(() => {});
+        }
+        processMetaQueue();
       });
   }
 }
@@ -201,6 +213,49 @@ async function releaseContext(profileDir, ctxInfo) {
     if (ctxInfo.browser) await ctxInfo.browser.close().catch(() => {});
   }
   // Shared contexts stay open — closed on server shutdown or idle timeout
+}
+
+
+// Clear cache cua browser profile -- CHI xoa cache, KHONG dung cookies/session
+function clearBrowserCache(profileDir) {
+  const safeCacheFoldersInDefault = [
+    "Cache", "Cache_Data", "Code Cache", "GPUCache",
+    "DawnCache", "ShaderCache", "blob_storage",
+    "GrShaderCache",
+    "GraphiteDawnCache",
+    "BrowserMetrics",
+    "DeferredBrowserMetrics",
+    "extensions_crx_cache",
+    "component_crx_cache",
+    "Crashpad",
+    "Safe Browsing",
+    "segmentation_platform",
+  ];
+  const safeCacheFoldersTopLevel = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache",
+    "GrShaderCache", "GraphiteDawnCache",
+    "BrowserMetrics", "DeferredBrowserMetrics",
+    "extensions_crx_cache", "component_crx_cache",
+    "Crashpad", "Safe Browsing", "segmentation_platform",
+  ];
+  let cleared = 0;
+  const profilePath = path.join(__dirname, profileDir, "Default");
+  if (fs.existsSync(profilePath)) {
+    for (const folder of safeCacheFoldersInDefault) {
+      const p = path.join(profilePath, folder);
+      if (fs.existsSync(p)) {
+        try { fs.rmSync(p, { recursive: true, force: true }); cleared++; } catch (_) {}
+      }
+    }
+  }
+  const topPath = path.join(__dirname, profileDir);
+  for (const folder of safeCacheFoldersTopLevel) {
+    const p = path.join(topPath, folder);
+    if (fs.existsSync(p)) {
+      try { fs.rmSync(p, { recursive: true, force: true }); cleared++; } catch (_) {}
+    }
+  }
+  if (cleared > 0) console.log(`🧹 Cleared ${cleared} cache folders from ${profileDir}`);
 }
 
 // Pre-warm: mở browser context sẵn khi server start
