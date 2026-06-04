@@ -202,42 +202,92 @@ async function closeSharedCtx(service) {
 
 // Clear cache của browser profile — CHỈ xóa cache, KHÔNG đụng cookies/session
 function clearBrowserCache(profileDir) {
-  const safeCacheFolders = [
+  // Các folder an toàn trong Default/ — Chrome tự tạo lại, không ảnh hưởng login/cookies
+  const safeCacheFoldersInDefault = [
     "Cache", "Cache_Data", "Code Cache", "GPUCache",
-    "DawnCache", "ShaderCache", "blob_storage"
+    "DawnCache", "ShaderCache", "blob_storage",
+    "GrShaderCache",          // GPU shader cache
+    "GraphiteDawnCache",      // GPU graphics cache
+    "BrowserMetrics",         // telemetry metrics
+    "DeferredBrowserMetrics", // deferred telemetry
+    "extensions_crx_cache",   // extension package cache
+    "component_crx_cache",    // component extension cache
+    "Crashpad",               // crash reports
+    "Safe Browsing",          // URL safety database (Chrome tự sync lại)
+    "segmentation_platform",  // Chrome ML data
   ];
-  const profilePath = path.join(__dirname, profileDir, "Default");
-  if (!fs.existsSync(profilePath)) return;
+
+  // Các folder an toàn ở top-level profile (ngoài Default/)
+  const safeCacheFoldersTopLevel = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache",
+    "GrShaderCache", "GraphiteDawnCache",
+    "BrowserMetrics", "DeferredBrowserMetrics",
+    "extensions_crx_cache",   // thấy ở top-level profile_gemini
+    "component_crx_cache",    // thấy ở top-level profile_gemini
+    "Crashpad",
+    "Safe Browsing",          // thấy ở top-level profile_gemini
+    "segmentation_platform",  // thấy ở top-level profile_gemini
+  ];
+
   let cleared = 0;
-  for (const folder of safeCacheFolders) {
-    const folderPath = path.join(profilePath, folder);
-    if (fs.existsSync(folderPath)) {
-      try {
-        fs.rmSync(folderPath, { recursive: true, force: true });
-        cleared++;
-      } catch (_) {}
+
+  // Xóa trong Default/
+  const profilePath = path.join(__dirname, profileDir, "Default");
+  if (fs.existsSync(profilePath)) {
+    for (const folder of safeCacheFoldersInDefault) {
+      const folderPath = path.join(profilePath, folder);
+      if (fs.existsSync(folderPath)) {
+        try { fs.rmSync(folderPath, { recursive: true, force: true }); cleared++; } catch (_) {}
+      }
     }
   }
+
+  // Xóa ở top-level
   const topPath = path.join(__dirname, profileDir);
-  for (const folder of ["Cache", "Code Cache", "GPUCache", "ShaderCache"]) {
+  for (const folder of safeCacheFoldersTopLevel) {
     const folderPath = path.join(topPath, folder);
     if (fs.existsSync(folderPath)) {
       try { fs.rmSync(folderPath, { recursive: true, force: true }); cleared++; } catch (_) {}
     }
   }
+
   if (cleared > 0) console.log(`🧹 Cleared ${cleared} cache folders from ${profileDir}`);
 }
 
 // ─── GEMINI ───────────────────────────────────────────
 async function runGemini(jobId, imagePath, prompt) {
-  log(jobId, "🚀 Opening Gemini...");
+  log(jobId, "\u{1F680} Opening Gemini...");
   const page = await getSharedPage("gemini");
   try {
-    await page.goto("https://gemini.google.com/app/new", { waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(8000);
+    // Intercept response: bat anh full-size khi click download button
+    // (Gemini chi request lh3.googleusercontent.com khi download, khong phai luc render)
+    let capturedBuf = null;
+    page.on("response", async (res) => {
+      try {
+        const url = res.url();
+        const ct = res.headers()["content-type"] || "";
+        if (
+          capturedBuf === null &&
+          ct.startsWith("image/") &&
+          res.status() === 200 &&
+          url.includes("googleusercontent.com") &&
+          !url.includes("gstatic.com")
+        ) {
+          const buf = await res.body().catch(() => null);
+          if (buf && buf.length > 200 * 1024) {
+            capturedBuf = buf;
+            log(jobId, `\u{1F4F8} Intercepted: ${url.slice(0, 70)} (${(buf.length/1024).toFixed(0)}KB)`);
+          }
+        }
+      } catch (_) {}
+    });
+
+    await page.goto("https://gemini.google.com/app/new", { waitUntil: "domcontentloaded", timeout: 60000 });
+    // Cho Gemini load xong thay vi wait cung 8s
+    await page.waitForSelector('[role="textbox"], textarea, div[contenteditable="true"]', { timeout: 30000 }).catch(() => {});
     if (page.url().includes("accounts.google.com")) throw new Error("Gemini session expired");
 
-    log(jobId, "📤 Uploading image...");
+    log(jobId, "\u{1F4E4} Uploading image...");
     await page.click('button[aria-label*="Upload"], button[aria-label*="upload"], button[aria-label*="Add"]').catch(() => {});
     await page.waitForTimeout(2000);
     await page.locator("text=Upload files").first().click().catch(() => {});
@@ -251,10 +301,10 @@ async function runGemini(jobId, imagePath, prompt) {
     }
     if (!fileInput) throw new Error("Upload input not found on Gemini");
     await fileInput.setInputFiles(imagePath);
-    log(jobId, "✅ Image uploaded");
+    log(jobId, "\u2705 Image uploaded");
     await page.waitForTimeout(5000);
 
-    // Tìm prompt box
+    // Tim prompt box
     let promptBox = null;
     for (let i = 0; i < 30; i++) {
       let box = await page.$("textarea");
@@ -265,7 +315,7 @@ async function runGemini(jobId, imagePath, prompt) {
     }
     if (!promptBox) throw new Error("Prompt box not found");
 
-    // Snapshot ảnh hiện có TRƯỚC khi gửi prompt
+    // Snapshot anh hien co TRUOC khi gui prompt (de poll anh moi)
     const existingImgSrcs = new Set();
     for (const img of await page.$$("img")) {
       try {
@@ -276,92 +326,94 @@ async function runGemini(jobId, imagePath, prompt) {
 
     await promptBox.fill(prompt);
     await promptBox.press("Enter");
-    log(jobId, "⏳ Waiting for Gemini to generate image...");
+    log(jobId, "\u23F3 Waiting for Gemini to generate image...");
 
-    // Poll ảnh MỚI (max 2.5 phút, poll mỗi 3s)
-    // Không phụ thuộc UI toolbar hay download button — bền với mọi thay đổi UI Gemini
-    let largestImg = null;
-    let largestArea = 0;
+    // Poll anh moi (max 2.5 phut, moi 3s)
+    let foundImg = null;
     for (let attempt = 0; attempt < 50; attempt++) {
       await page.waitForTimeout(3000);
-      largestImg = null;
-      largestArea = 0;
+      // Neu da bat duoc response image -> van can tim element de confirm xong
+      let largestArea = 0;
+      let bestImg = null;
       for (const img of await page.$$("img")) {
         try {
           const src = await img.getAttribute("src");
-          if (src && existingImgSrcs.has(src)) continue; // bỏ qua ảnh cũ
+          if (src && existingImgSrcs.has(src)) continue;
           const box = await img.boundingBox();
-          // Ảnh generated phải có cả width VÀ height > 200px
           if (!box || box.width < 200 || box.height < 200) continue;
           const area = box.width * box.height;
-          if (area > largestArea) {
-            largestArea = area;
-            largestImg = img;
-          }
+          if (area > largestArea) { largestArea = area; bestImg = img; }
         } catch (_) {}
       }
-      if (largestImg && largestArea > 80000) {
-        log(jobId, `✅ Image generated (${(attempt + 1) * 3}s)`);
+      if (bestImg && largestArea > 80000) {
+        foundImg = bestImg;
+        log(jobId, `\u2705 Image generated (${(attempt + 1) * 3}s)`);
         break;
       }
-      if (attempt % 10 === 0 && attempt > 0) log(jobId, `⏳ Still waiting... (${attempt * 3}s)`);
-      largestImg = null;
+      if (attempt % 10 === 0 && attempt > 0) log(jobId, `\u23F3 Still waiting... (${attempt * 3}s)`);
     }
 
-    if (!largestImg) throw new Error("Generated image not found after 2.5 minutes");
+    if (!foundImg) throw new Error("Generated image not found after 2.5 minutes");
 
-    const imgBox = await largestImg.boundingBox();
-    log(jobId, `📐 Image ${Math.round(imgBox.width)}x${Math.round(imgBox.height)}`);
-
-    const imgSrc = await largestImg.getAttribute("src");
     const outPath = path.join(__dirname, "outputs", `${jobId}_enhanced.png`);
-    let saved = false;
 
-    // Method 1: fetch src trực tiếp (nhanh nhất, không cần click UI)
-    if (!saved && imgSrc && (imgSrc.startsWith("http") || imgSrc.startsWith("data:"))) {
-      try {
-        const imgBuffer = await page.evaluate(async (url) => {
-          const r = await fetch(url, { credentials: "include" });
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          const ab = await r.arrayBuffer();
-          return Array.from(new Uint8Array(ab));
-        }, imgSrc);
-        fs.writeFileSync(outPath, Buffer.from(imgBuffer));
-        log(jobId, `✅ Image saved (fetch, ${(imgBuffer.length / 1024).toFixed(0)}KB)`);
-        saved = true;
-      } catch (e) {
-        log(jobId, `⚠️ Fetch failed: ${e.message.slice(0, 50)}`);
+    // Method 1: hover anh -> click download button -> intercept response full-size
+    // Gemini chi request lh3.googleusercontent.com khi click download (khong phai luc render)
+    try {
+      const imgBox = await foundImg.boundingBox();
+      await foundImg.scrollIntoViewIfNeeded().catch(() => {});
+      await page.mouse.move(imgBox.x + imgBox.width / 2, imgBox.y + imgBox.height / 2);
+      await page.waitForTimeout(1500);
+
+      const downloadBtn =
+        await page.$('button[aria-label*="Download full size"]') ||       // EN
+        await page.$('button[aria-label*="Download image"]') ||           // EN alt
+        await page.$('button[aria-label*="download"]') ||                 // EN lowercase
+        await page.$('button[aria-label*="T\u1EA3i \u1EA3nh c\u00F3 k\u00EDch th\u01B0\u1EDBc"]') ||   // VI: "Tải ảnh có kích thước..."
+        await page.$('button[aria-label*="T\u1EA3i xu\u1ED1ng"]') ||               // VI: "Tải xuống"
+        await page.$('button[aria-label*="t\u1EA3i xu\u1ED1ng"]') ||               // VI lowercase
+        await page.$('button[aria-label*="Download"]');                   // EN generic fallback
+
+      if (downloadBtn && await downloadBtn.isVisible().catch(() => false)) {
+        capturedBuf = null; // reset truoc khi click
+        await downloadBtn.click();
+        // Cho intercept bat duoc response (toi da 10s)
+        for (let w = 0; w < 20 && !capturedBuf; w++) await page.waitForTimeout(500);
+        if (capturedBuf) {
+          fs.writeFileSync(outPath, capturedBuf);
+          log(jobId, `\u2705 Image saved (intercept, ${(capturedBuf.length / 1024).toFixed(0)}KB)`);
+          return `/outputs/${jobId}_enhanced.png`;
+        }
+        // Intercept khong bat duoc -> thu Playwright download event
+        const dl = await page.waitForEvent("download", { timeout: 10000 }).catch(() => null);
+        if (dl) {
+          await dl.saveAs(outPath);
+          const size = fs.statSync(outPath).size;
+          log(jobId, `\u2705 Image saved (download event, ${(size / 1024).toFixed(0)}KB)`);
+          return `/outputs/${jobId}_enhanced.png`;
+        }
       }
+    } catch (e) {
+      log(jobId, `\u26A0\uFE0F Download btn failed: ${e.message.slice(0, 50)}`);
     }
 
-    // Method 2: canvas toDataURL (hoạt động với blob: và mọi ảnh visible)
-    if (!saved) {
-      try {
-        const base64 = await page.evaluate((imgEl) => {
-          return new Promise((resolve, reject) => {
-            const canvas = document.createElement("canvas");
-            canvas.width = imgEl.naturalWidth || imgEl.width;
-            canvas.height = imgEl.naturalHeight || imgEl.height;
-            const ctx2d = canvas.getContext("2d");
-            ctx2d.drawImage(imgEl, 0, 0);
-            resolve(canvas.toDataURL("image/png").split(",")[1]);
-          });
-        }, largestImg);
-        fs.writeFileSync(outPath, Buffer.from(base64, "base64"));
-        const size = fs.statSync(outPath).size;
-        log(jobId, `✅ Image saved (canvas, ${(size / 1024).toFixed(0)}KB)`);
-        saved = true;
-      } catch (e) {
-        log(jobId, `⚠️ Canvas failed: ${e.message.slice(0, 50)}`);
-      }
-    }
-
-    // Method 3: screenshot element (last resort)
-    if (!saved) {
-      await largestImg.screenshot({ path: outPath });
-      const size = fs.statSync(outPath).size;
-      log(jobId, `✅ Image saved (screenshot, ${(size / 1024).toFixed(0)}KB)`);
-    }
+    // Method 2: canvas fallback (render resolution)
+    log(jobId, "\u26A0\uFE0F Falling back to canvas...");
+    const base64 = await page.evaluate((imgEl) => {
+      return new Promise((resolve, reject) => {
+        const w = imgEl.naturalWidth || imgEl.width;
+        const h = imgEl.naturalHeight || imgEl.height;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(imgEl, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/png").split(",")[1]);
+      });
+    }, foundImg);
+    fs.writeFileSync(outPath, Buffer.from(base64, "base64"));
+    const size = fs.statSync(outPath).size;
+    const dims = await page.evaluate((imgEl) => ({ w: imgEl.naturalWidth, h: imgEl.naturalHeight }), foundImg).catch(() => ({ w: 0, h: 0 }));
+    log(jobId, `\u2705 Image saved (canvas, ${dims.w}x${dims.h}, ${(size / 1024).toFixed(0)}KB)`);
 
     return `/outputs/${jobId}_enhanced.png`;
   } finally {
