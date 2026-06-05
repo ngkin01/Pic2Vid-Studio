@@ -782,11 +782,28 @@ async function downloadAll() {
 
 async function retryFailed() {
   if (!lastBatchResults.length) return;
-  const failedFiles = lastBatchResults
-    .map((job, i) => job.step === 'error' ? selectedFiles[i] : null)
-    .filter(Boolean);
+
+  // Tim cac index bi loi
+  const failedIndexes = lastBatchResults
+    .map((job, i) => job.step === 'error' ? i : null)
+    .filter(i => i !== null);
+  if (!failedIndexes.length) return;
+
+  const failedFiles = failedIndexes.map(i => selectedFiles[i]).filter(Boolean);
   if (!failedFiles.length) return;
+
   document.getElementById('retryFailedBtn').style.display = 'none';
+
+  // Reset UI cua cac item loi ve trang thai dang chay
+  failedIndexes.forEach(i => {
+    const statusEl = document.getElementById(`fstatus-${i}`);
+    const progEl = document.getElementById(`fprog-${i}`);
+    const dlEl = document.getElementById(`fdl-${i}`);
+    if (statusEl) { statusEl.textContent = 'Retrying...'; statusEl.className = 'text-[12px] text-white/60 mt-1 font-medium text-[#1D9E75]'; }
+    if (progEl) { progEl.style.width = '5%'; progEl.style.background = '#1D9E75'; }
+    if (dlEl) dlEl.style.display = 'none';
+  });
+
   const form = new FormData();
   failedFiles.forEach(f => form.append('images', f));
   form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
@@ -794,7 +811,14 @@ async function retryFailed() {
   try {
     const res = await fetch(BACKEND + '/batch', { method: 'POST', body: form });
     const data = await res.json();
-    batchJobIds = [...batchJobIds, ...data.jobIds];
+
+    // REPLACE jobId cu cua cac item loi bang jobId moi (khong append them)
+    // De pollBatch van map dung theo index
+    data.jobIds.forEach((newJobId, j) => {
+      const origIndex = failedIndexes[j];
+      if (origIndex !== undefined) batchJobIds[origIndex] = newJobId;
+    });
+
     saveState();
     document.getElementById('batchProgress').style.display = 'block';
     document.getElementById('runBtn').disabled = true;
