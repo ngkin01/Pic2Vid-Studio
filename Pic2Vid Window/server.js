@@ -62,6 +62,37 @@ const META_CONCURRENCY = 2;   // 2 tab Meta AI song song
 let geminiActive = 0;
 let metaActive = 0;
 
+// Track batch groups de biet khi nao tat ca job xong thi clear cache
+// batchGroups[groupId] = [jobId1, jobId2, ...]
+const batchGroups = {};
+
+async function checkAndClearCacheIfGroupDone(groupId) {
+  const jobIds = batchGroups[groupId];
+  if (!jobIds) return;
+  // Kiem tra tat ca job da done hoac error (khong con queued/running)
+  const allFinished = jobIds.every(id => {
+    const job = jobs[id];
+    if (!job) return true;
+    return job.step === 'meta_done' || job.step === 'done' || job.step === 'error';
+  });
+  if (!allFinished) return;
+  // Tat ca xong — close ctx (chi khi khong con tab active), clear cache
+  console.log(`\n🧹 Batch group ${groupId.slice(0,8)} done — closing contexts & clearing cache...`);
+  if (geminiActive === 0 && sharedCtx.gemini) {
+    await sharedCtx.gemini.close().catch(() => {});
+    sharedCtx.gemini = null;
+  }
+  if (metaActive === 0 && sharedCtx.meta) {
+    await sharedCtx.meta.close().catch(() => {});
+    sharedCtx.meta = null;
+  }
+  const gSlots = getProfileSlots("gemini");
+  const mSlots = getProfileSlots("meta");
+  [...gSlots, ...mSlots].forEach(({ profileDir }) => clearBrowserCache(profileDir));
+  delete batchGroups[groupId];
+  console.log("✅ All done — browser windows closed.");
+}
+
 function processGeminiQueue() {
   while (geminiActive < GEMINI_CONCURRENCY && geminiQueue.length > 0) {
     const task = geminiQueue.shift();
@@ -73,13 +104,8 @@ function processGeminiQueue() {
         const enhanced = await runGemini(task.jobId, task.imagePath, task.geminiPrompt);
         update(task.jobId, { step: "gemini_done", enhancedImage: enhanced });
         log(task.jobId, "✅ Gemini done — queued for Meta AI");
-        if (geminiQueue.length === 0 && geminiActive <= 1) {
-          clearBrowserCache("profile_gemini");
-          closeSharedCtx("gemini");
-        }
-
         const localPath = path.join(__dirname, enhanced.replace("/outputs/", "outputs/"));
-        metaQueue.push({ jobId: task.jobId, enhancedPath: localPath, metaPrompt: task.metaPrompt });
+        metaQueue.push({ jobId: task.jobId, groupId: task.groupId, enhancedPath: localPath, metaPrompt: task.metaPrompt });
         processMetaQueue();
 
       } catch (err) {
@@ -103,7 +129,17 @@ function processGeminiQueue() {
           log(task.jobId, `❌ Gemini error after 2 retries: ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
         }
+      } finally {
         geminiActive--;
+        // Khi Gemini queue trong va khong con tab nao chay -> close ctx, clear cache, mo lai
+        if (geminiQueue.length === 0 && geminiActive === 0) {
+          if (sharedCtx.gemini) {
+            await sharedCtx.gemini.close().catch(() => {});
+            sharedCtx.gemini = null;
+          }
+          const slot = currentSlot.gemini;
+          if (slot) clearBrowserCache(slot.profileDir);
+        }
         processGeminiQueue();
       }
     })();
@@ -121,10 +157,7 @@ function processMetaQueue() {
         const video = await runMetaAI(task.jobId, task.enhancedPath, task.metaPrompt);
         update(task.jobId, { step: "meta_done", videoUrl: video });
         log(task.jobId, "🎉 Done!");
-        if (metaQueue.length === 0 && metaActive <= 1) {
-          clearBrowserCache("profile_meta");
-          closeSharedCtx("meta");
-        }
+        if (task.groupId) checkAndClearCacheIfGroupDone(task.groupId);
 
       } catch (err) {
         const retryCount = (jobs[task.jobId]?.retryCount || 0);
@@ -138,6 +171,7 @@ function processMetaQueue() {
           } else {
             log(task.jobId, `❌ Meta AI quota, no more accounts`);
             update(task.jobId, { step: "error", error: err.message });
+            if (task.groupId) checkAndClearCacheIfGroupDone(task.groupId);
           }
         } else if (retryCount < 2) {
           update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
@@ -146,7 +180,10 @@ function processMetaQueue() {
         } else {
           log(task.jobId, `❌ Meta AI error after 2 retries: ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
+          if (task.groupId) checkAndClearCacheIfGroupDone(task.groupId);
         }
+      } finally {
+        metaActive--;
         processMetaQueue();
       }
     })();
@@ -162,14 +199,14 @@ function loadCookieState(envKey) {
 }
 
 // ─── MULTI-ACCOUNT MANAGER ────────────────────────────
-// Tim tat ca profile slot co san
-// Thu tu: profile_gemini (legacy slot 0) -> profile_gemini_1 -> profile_gemini_2 ...
+// Tim tat ca profile slot co san: profile_gemini_1, profile_gemini_2, ...
+// Fallback ve profile_gemini neu khong co slot nao
 function getProfileSlots(service) {
   const slots = [];
-  // Luon check profile legacy truoc (slot 0) neu ton tai
+  // Legacy profile truoc (slot 0) — dung truoc, het quota moi sang slot tiep
   const legacy = path.join(__dirname, `profile_${service}`);
   if (fs.existsSync(legacy)) slots.push({ slot: 0, profileDir: `profile_${service}` });
-  // Them cac slot co so: profile_gemini_1, profile_gemini_2, ...
+  // Cac slot co so: profile_gemini_2, profile_gemini_3, ...
   for (let i = 1; i <= 10; i++) {
     const p = path.join(__dirname, `profile_${service}_${i}`);
     if (fs.existsSync(p)) slots.push({ slot: i, profileDir: `profile_${service}_${i}` });
@@ -213,6 +250,8 @@ async function rotateAccount(service) {
     await sharedCtx[service].close().catch(() => {});
     sharedCtx[service] = null;
   }
+  // Clear cache profile moi truoc khi dung
+  clearBrowserCache(next.profileDir);
   currentSlot[service] = next;
   return true;
 }
@@ -253,6 +292,9 @@ async function getSharedPage(service) {
         { headless: false, channel: "chrome", acceptDownloads: true,
           args: ["--disable-blink-features=AutomationControlled"] }
       );
+      // Dung lai tab about:blank co san thay vi mo tab moi
+      const existingPages = sharedCtx[service].pages();
+      if (existingPages.length > 0) return existingPages[0];
     } else {
       const cookieState = loadCookieState(cookieKey);
       if (!cookieState) throw new Error(`${cookieKey} not set`);
@@ -267,10 +309,49 @@ async function getSharedPage(service) {
       if (cookieState?.cookies?.length) await ctx.addCookies(cookieState.cookies);
       sharedCtx[service] = ctx;
     }
+    // Cloud mode: newPage()
     return await sharedCtx[service].newPage();
   } finally {
     ctxLock[service] = false;
   }
+}
+
+
+// Clear cache cua browser profile -- CHI xoa cache, KHONG dung cookies/session
+function clearBrowserCache(profileDir) {
+  const safeCacheFoldersInDefault = [
+    "Cache", "Cache_Data", "Code Cache", "GPUCache",
+    "DawnCache", "ShaderCache", "blob_storage",
+    "GrShaderCache", "GraphiteDawnCache",
+    "BrowserMetrics", "DeferredBrowserMetrics",
+    "extensions_crx_cache", "component_crx_cache",
+    "Crashpad", "Safe Browsing", "segmentation_platform",
+  ];
+  const safeCacheFoldersTopLevel = [
+    "Cache", "Code Cache", "GPUCache", "ShaderCache",
+    "GrShaderCache", "GraphiteDawnCache",
+    "BrowserMetrics", "DeferredBrowserMetrics",
+    "extensions_crx_cache", "component_crx_cache",
+    "Crashpad", "Safe Browsing", "segmentation_platform",
+  ];
+  let cleared = 0;
+  const profilePath = path.join(__dirname, profileDir, "Default");
+  if (fs.existsSync(profilePath)) {
+    for (const folder of safeCacheFoldersInDefault) {
+      const p = path.join(profilePath, folder);
+      if (fs.existsSync(p)) {
+        try { fs.rmSync(p, { recursive: true, force: true }); cleared++; } catch (_) {}
+      }
+    }
+  }
+  const topPath = path.join(__dirname, profileDir);
+  for (const folder of safeCacheFoldersTopLevel) {
+    const p = path.join(topPath, folder);
+    if (fs.existsSync(p)) {
+      try { fs.rmSync(p, { recursive: true, force: true }); cleared++; } catch (_) {}
+    }
+  }
+  if (cleared > 0) console.log(`🧹 Cleared ${cleared} cache folders from ${profileDir}`);
 }
 
 async function closeSharedCtx(service) {
@@ -537,7 +618,9 @@ app.post("/start", upload.single("image"), (req, res) => {
   log(jobId, "📋 Job queued");
   const geminiPrompt = req.body.geminiPrompt || "Turn this into a premium ecommerce product photo. Luxury background. Soft cinematic lighting. Ultra realistic.";
   const metaPrompt = req.body.metaPrompt || "Turn this image into a cinematic TikTok video. Smooth motion. Luxury commercial style.";
-  geminiQueue.push({ jobId, imagePath: req.file.path, geminiPrompt, metaPrompt });
+  const groupId = jobId; // single job — groupId == jobId
+  batchGroups[groupId] = [jobId];
+  geminiQueue.push({ jobId, groupId, imagePath: req.file.path, geminiPrompt, metaPrompt });
   processGeminiQueue();
   res.json({ jobId });
 });
@@ -548,14 +631,16 @@ app.post("/batch", upload.array("images", 20), (req, res) => {
   const geminiPrompt = req.body.geminiPrompt || "Turn this into a premium ecommerce product photo. Luxury background. Soft cinematic lighting. Ultra realistic.";
   const metaPrompt = req.body.metaPrompt || "Turn this image into a cinematic TikTok video. Smooth motion. Luxury commercial style.";
 
+  const groupId = uuidv4(); // ID chung cho ca batch nay
   const jobIds = req.files.map((file, i) => {
     const jobId = uuidv4();
     createJob(jobId, file.originalname, i);
     log(jobId, `📋 Queued ${i+1}/${req.files.length} — ${file.originalname}`);
-    geminiQueue.push({ jobId, imagePath: file.path, geminiPrompt, metaPrompt });
+    geminiQueue.push({ jobId, groupId, imagePath: file.path, geminiPrompt, metaPrompt });
     return jobId;
   });
 
+  batchGroups[groupId] = jobIds;
   processGeminiQueue();
   res.json({ jobIds, total: jobIds.length });
 });
@@ -614,6 +699,7 @@ app.listen(PORT, () => {
     const mSlots = getProfileSlots("meta");
     console.log(`   Gemini accounts: ${gSlots.length > 0 ? gSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js gemini 1"}`);
     console.log(`   Meta AI accounts: ${mSlots.length > 0 ? mSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js meta 1"}`);
+
   } else {
     console.log(`☁️  Mode: CLOUD`);
     console.log(`   COOKIES_GEMINI: ${process.env.COOKIES_GEMINI ? "✅ set" : "❌ missing"}`);
