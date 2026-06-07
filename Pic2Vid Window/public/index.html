@@ -325,7 +325,8 @@
     .prompt-body textarea { 
       width: 100%; background: transparent; border: none; outline: none; 
       color: rgba(255, 255, 255, 0.8); font-size: 13px; font-family: "JetBrains Mono", monospace; 
-      line-height: 1.6; resize: vertical; min-height: 100px; 
+      line-height: 1.6; resize: vertical; min-height: 100px;
+      cursor: text; pointer-events: auto; position: relative; z-index: 2;
     }
 
     /* BUTTONS (Glass style) */
@@ -611,13 +612,16 @@
 <div class="prompt-toggle-left"><span class="ptag ptag-g"><svg viewBox="0 0 65 65" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gm_grad" x1="18.447" y1="43.42" x2="52.153" y2="15.004" gradientUnits="userSpaceOnUse"><stop stop-color="#4893FC"/><stop offset=".27" stop-color="#4893FC"/><stop offset=".777" stop-color="#969DFF"/><stop offset="1" stop-color="#BD99FE"/></linearGradient></defs><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="url(#gm_grad)"/></svg>Gemini</span> Image prompt</div>
 <i class="ti ti-chevron-down prompt-arrow" id="gArrow"></i>
 </div>
-<div class="prompt-body" id="gBody">
-<textarea id="geminiPrompt" oninput="savePrompts()">Turn this image into a premium ecommerce product photo.
+<div class="prompt-body" id="gBody" onclick="event.stopPropagation()">
+<textarea id="geminiPrompt">Turn this image into a premium ecommerce product photo.
 
 Luxury background.
 Soft cinematic lighting.
 Ultra realistic.
 Professional advertising photography.</textarea>
+<button onclick="savePromptManual('g');event.stopPropagation()" id="saveGBtn" style="margin-top:10px;width:100%;padding:10px 0;border-radius:12px;background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.4);color:#1D9E75;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
+  <i class="ti ti-device-floppy"></i> Save prompt
+</button>
 </div>
 </div>
 <div class="prompt-item" style="margin-bottom:24px">
@@ -625,7 +629,7 @@ Professional advertising photography.</textarea>
 <div class="prompt-toggle-left"><span class="ptag ptag-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="meta_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_grad)"/></svg>Meta AI</span> Video prompt</div>
 <i class="ti ti-chevron-down prompt-arrow" id="mArrow"></i>
 </div>
-<div class="prompt-body" id="mBody">
+<div class="prompt-body" id="mBody" onclick="event.stopPropagation()">
 <div class="cat-select-wrap">
   <select class="cat-select" id="catSelect">
     <option value="0">Default Prompt</option>
@@ -650,7 +654,8 @@ Professional advertising photography.</textarea>
     </div>
   </div>
 </div>
-<textarea id="metaPrompt" oninput="deselectCategory(); savePrompts()">A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.</textarea>
+<textarea id="metaPrompt">A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.</textarea>
+<button onclick="savePromptManual('m');event.stopPropagation()" id="saveMBtn" style="margin-top:10px;width:100%;padding:10px 0;border-radius:12px;background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.4);color:#1D9E75;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;"><i class="ti ti-device-floppy"></i> Save prompt</button>
 </div>
 </div>
 <div class="status-bar" id="statusBar" style="display: none;">
@@ -714,17 +719,19 @@ const CATEGORY_PROMPTS = [
   `A trendy fashion TikTok commercial featuring stylish clothing in a clean modern studio environment. Dynamic cinematic camera movement with close-up fabric details and aesthetic lighting. Premium fashion advertisement atmosphere with realistic textures, visually attractive and modern, 4k, vertical 9:16.`
 ];
 
-function selectCategory(val) {
-  document.getElementById('metaPrompt').value = CATEGORY_PROMPTS[parseInt(val)];
+// Index của category đang được chọn
+let currentCategoryIndex = 0;
+
+function getSavedMetaPrompts() {
+  try { return JSON.parse(localStorage.getItem('ps_meta_prompts') || '{}'); } catch(_) { return {}; }
 }
 
-function deselectCategory() {
-  document.getElementById('catSelect').value = '0';
-  document.getElementById('metaPrompt').value = CATEGORY_PROMPTS[0];
-  // reset custom UI
-  const opts = document.querySelectorAll('.custom-select-option');
-  opts.forEach((o,i) => o.classList.toggle('selected', i===0));
-  document.getElementById('customCatLabel').textContent = 'Default Prompt';
+function selectCategory(val) {
+  currentCategoryIndex = parseInt(val);
+  const saved = getSavedMetaPrompts();
+  // Load prompt đã save của category này nếu có, không thì load default
+  const prompt = (saved[currentCategoryIndex] !== undefined) ? saved[currentCategoryIndex] : CATEGORY_PROMPTS[currentCategoryIndex];
+  document.getElementById('metaPrompt').value = prompt;
 }
 
 function toggleCatDropdown() {
@@ -843,6 +850,7 @@ function saveState() {
 }
 
 function savePrompts() {
+  // Auto-save khi restore state (internal use)
   try {
     localStorage.setItem('ps_prompts', JSON.stringify({
       geminiPrompt: document.getElementById('geminiPrompt')?.value || '',
@@ -851,13 +859,37 @@ function savePrompts() {
   } catch(_) {}
 }
 
+function savePromptManual(type) {
+  try {
+    const btnId = type === 'g' ? 'saveGBtn' : 'saveMBtn';
+    const btn = document.getElementById(btnId);
+    if (type === 'g') {
+      // Lưu Gemini prompt (1 cái duy nhất)
+      const saved = JSON.parse(localStorage.getItem('ps_saved_prompts') || '{}');
+      saved.geminiPrompt = document.getElementById('geminiPrompt').value;
+      localStorage.setItem('ps_saved_prompts', JSON.stringify(saved));
+    } else {
+      // Lưu Meta prompt theo category index hiện tại
+      const metaSaved = getSavedMetaPrompts();
+      metaSaved[currentCategoryIndex] = document.getElementById('metaPrompt').value;
+      localStorage.setItem('ps_meta_prompts', JSON.stringify(metaSaved));
+    }
+    // Feedback
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<i class="ti ti-check"></i> Saved!';
+    btn.style.background = 'rgba(29,158,117,0.35)';
+    setTimeout(() => { btn.innerHTML = orig; btn.style.background = 'rgba(29,158,117,0.15)'; }, 1500);
+  } catch(_) {}
+}
+
 function loadPrompts() {
   try {
-    const saved = localStorage.getItem('ps_prompts');
-    if (!saved) return;
-    const { geminiPrompt, metaPrompt } = JSON.parse(saved);
-    if (geminiPrompt) document.getElementById('geminiPrompt').value = geminiPrompt;
-    if (metaPrompt) document.getElementById('metaPrompt').value = metaPrompt;
+    // Load Gemini prompt
+    const saved = JSON.parse(localStorage.getItem('ps_saved_prompts') || '{}');
+    if (saved.geminiPrompt) document.getElementById('geminiPrompt').value = saved.geminiPrompt;
+    // Load Meta prompt theo category 0 (default) lúc khởi động
+    const metaSaved = getSavedMetaPrompts();
+    if (metaSaved[0] !== undefined) document.getElementById('metaPrompt').value = metaSaved[0];
   } catch(_) {}
 }
 
