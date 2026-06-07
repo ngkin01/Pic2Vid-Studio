@@ -84,7 +84,18 @@ function processGeminiQueue() {
 
       } catch (err) {
         const retryCount = (jobs[task.jobId]?.retryCount || 0);
-        if (retryCount < 2) {
+        if (isQuotaError(err.message)) {
+          log(task.jobId, `⚠️ Gemini quota/session: ${err.message.slice(0,80)}`);
+          const rotated = await rotateAccount("gemini");
+          if (rotated) {
+            log(task.jobId, `🔄 Switched Gemini account, retrying...`);
+            update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
+            geminiQueue.unshift(task);
+          } else {
+            log(task.jobId, `❌ Gemini quota, no more accounts`);
+            update(task.jobId, { step: "error", error: err.message });
+          }
+        } else if (retryCount < 2) {
           update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
           log(task.jobId, `⚠️ Gemini failed (${err.message}) — retry ${retryCount + 1}/2...`);
           geminiQueue.push(task);
@@ -92,7 +103,6 @@ function processGeminiQueue() {
           log(task.jobId, `❌ Gemini error after 2 retries: ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
         }
-      } finally {
         geminiActive--;
         processGeminiQueue();
       }
@@ -118,7 +128,18 @@ function processMetaQueue() {
 
       } catch (err) {
         const retryCount = (jobs[task.jobId]?.retryCount || 0);
-        if (retryCount < 2) {
+        if (isQuotaError(err.message)) {
+          log(task.jobId, `⚠️ Meta AI quota/session: ${err.message.slice(0,80)}`);
+          const rotated = await rotateAccount("meta");
+          if (rotated) {
+            log(task.jobId, `🔄 Switched Meta AI account, retrying...`);
+            update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
+            metaQueue.unshift(task);
+          } else {
+            log(task.jobId, `❌ Meta AI quota, no more accounts`);
+            update(task.jobId, { step: "error", error: err.message });
+          }
+        } else if (retryCount < 2) {
           update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
           log(task.jobId, `⚠️ Meta AI failed (${err.message}) — retry ${retryCount + 1}/2...`);
           metaQueue.push(task);
@@ -126,8 +147,6 @@ function processMetaQueue() {
           log(task.jobId, `❌ Meta AI error after 2 retries: ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
         }
-      } finally {
-        metaActive--;
         processMetaQueue();
       }
     })();
@@ -142,32 +161,93 @@ function loadCookieState(envKey) {
   catch { return null; }
 }
 
-// Shared contexts — 1 browser per service, nhiều tab trong đó
+// ─── MULTI-ACCOUNT MANAGER ────────────────────────────
+// Tim tat ca profile slot co san
+// Thu tu: profile_gemini (legacy slot 0) -> profile_gemini_1 -> profile_gemini_2 ...
+function getProfileSlots(service) {
+  const slots = [];
+  // Luon check profile legacy truoc (slot 0) neu ton tai
+  const legacy = path.join(__dirname, `profile_${service}`);
+  if (fs.existsSync(legacy)) slots.push({ slot: 0, profileDir: `profile_${service}` });
+  // Them cac slot co so: profile_gemini_1, profile_gemini_2, ...
+  for (let i = 1; i <= 10; i++) {
+    const p = path.join(__dirname, `profile_${service}_${i}`);
+    if (fs.existsSync(p)) slots.push({ slot: i, profileDir: `profile_${service}_${i}` });
+  }
+  return slots;
+}
+
+// Track slot hien tai cho moi service
+const currentSlot = { gemini: null, meta: null };
+// Shared contexts — 1 browser per service
 const sharedCtx = { gemini: null, meta: null };
 const ctxLock   = { gemini: false, meta: false };
 
-async function getSharedPage(service) {
-  const profileDir  = service === "gemini" ? "profile_gemini" : "profile_meta";
-  const cookieKey   = service === "gemini" ? "COOKIES_GEMINI" : "COOKIES_META";
+// Keyword nhan biet loi quota/session -> can rotate account
+const QUOTA_KEYWORDS = [
+  "quota", "rate limit", "limit exceeded", "too many requests",
+  "session expired", "not logged in", "sign in", "429",
+];
+function isQuotaError(msg) {
+  const m = (msg || "").toLowerCase();
+  return QUOTA_KEYWORDS.some(k => m.includes(k));
+}
 
-  // Chờ nếu đang có thread khác đang khởi tạo context
+// Rotate sang slot tiep theo, tra ve true neu thanh cong
+async function rotateAccount(service) {
+  const slots = getProfileSlots(service);
+  if (slots.length <= 1) {
+    console.log(`[${service}] Chi co 1 account, khong the rotate. Them account: node add-account.js ${service} 2`);
+    return false;
+  }
+  const cur = currentSlot[service];
+  const curIdx = slots.findIndex(s => s.slot === (cur ? cur.slot : -1));
+  const nextIdx = (curIdx + 1) % slots.length;
+  const next = slots[nextIdx];
+  if (next.slot === (cur ? cur.slot : -999)) {
+    console.log(`[${service}] Da thu het tat ca ${slots.length} account`);
+    return false;
+  }
+  console.log(`[${service}] Rotating account: slot ${cur ? cur.slot : "legacy"} -> slot ${next.slot} (${next.profileDir})`);
+  if (sharedCtx[service]) {
+    await sharedCtx[service].close().catch(() => {});
+    sharedCtx[service] = null;
+  }
+  currentSlot[service] = next;
+  return true;
+}
+
+async function getSharedPage(service) {
+  const cookieKey = service === "gemini" ? "COOKIES_GEMINI" : "COOKIES_META";
+
+  // Cho neu thread khac dang khoi tao context
   while (ctxLock[service]) await new Promise(r => setTimeout(r, 200));
 
-  // Nếu context đã có và còn sống → mở tab mới
+  // Neu context da co va con song -> mo tab moi
   if (sharedCtx[service]) {
     try {
-      const page = await sharedCtx[service].newPage();
-      return page;
+      return await sharedCtx[service].newPage();
     } catch (_) {
-      // Context chết → tạo lại
       sharedCtx[service] = null;
     }
   }
 
-  // Tạo context mới
   ctxLock[service] = true;
   try {
+    // Double-check sau khi lay duoc lock — job khac co the da tao xong
+    if (sharedCtx[service]) {
+      return await sharedCtx[service].newPage();
+    }
+
     if (IS_LOCAL) {
+      // Lay slot hien tai, neu chua co thi lay slot dau tien
+      if (!currentSlot[service]) {
+        const slots = getProfileSlots(service);
+        if (slots.length === 0) throw new Error(`Khong tim thay profile nao cho ${service}. Chay: node add-account.js ${service} 1`);
+        currentSlot[service] = slots[0];
+      }
+      const { profileDir, slot } = currentSlot[service];
+      console.log(`[${service}] Opening profile: ${profileDir} (slot ${slot})`);
       sharedCtx[service] = await chromium.launchPersistentContext(
         path.join(__dirname, profileDir),
         { headless: false, channel: "chrome", acceptDownloads: true,
@@ -198,60 +278,6 @@ async function closeSharedCtx(service) {
     await sharedCtx[service].close().catch(() => {});
     sharedCtx[service] = null;
   }
-}
-
-// Clear cache của browser profile — CHỈ xóa cache, KHÔNG đụng cookies/session
-function clearBrowserCache(profileDir) {
-  // Các folder an toàn trong Default/ — Chrome tự tạo lại, không ảnh hưởng login/cookies
-  const safeCacheFoldersInDefault = [
-    "Cache", "Cache_Data", "Code Cache", "GPUCache",
-    "DawnCache", "ShaderCache", "blob_storage",
-    "GrShaderCache",          // GPU shader cache
-    "GraphiteDawnCache",      // GPU graphics cache
-    "BrowserMetrics",         // telemetry metrics
-    "DeferredBrowserMetrics", // deferred telemetry
-    "extensions_crx_cache",   // extension package cache
-    "component_crx_cache",    // component extension cache
-    "Crashpad",               // crash reports
-    "Safe Browsing",          // URL safety database (Chrome tự sync lại)
-    "segmentation_platform",  // Chrome ML data
-  ];
-
-  // Các folder an toàn ở top-level profile (ngoài Default/)
-  const safeCacheFoldersTopLevel = [
-    "Cache", "Code Cache", "GPUCache", "ShaderCache",
-    "GrShaderCache", "GraphiteDawnCache",
-    "BrowserMetrics", "DeferredBrowserMetrics",
-    "extensions_crx_cache",   // thấy ở top-level profile_gemini
-    "component_crx_cache",    // thấy ở top-level profile_gemini
-    "Crashpad",
-    "Safe Browsing",          // thấy ở top-level profile_gemini
-    "segmentation_platform",  // thấy ở top-level profile_gemini
-  ];
-
-  let cleared = 0;
-
-  // Xóa trong Default/
-  const profilePath = path.join(__dirname, profileDir, "Default");
-  if (fs.existsSync(profilePath)) {
-    for (const folder of safeCacheFoldersInDefault) {
-      const folderPath = path.join(profilePath, folder);
-      if (fs.existsSync(folderPath)) {
-        try { fs.rmSync(folderPath, { recursive: true, force: true }); cleared++; } catch (_) {}
-      }
-    }
-  }
-
-  // Xóa ở top-level
-  const topPath = path.join(__dirname, profileDir);
-  for (const folder of safeCacheFoldersTopLevel) {
-    const folderPath = path.join(topPath, folder);
-    if (fs.existsSync(folderPath)) {
-      try { fs.rmSync(folderPath, { recursive: true, force: true }); cleared++; } catch (_) {}
-    }
-  }
-
-  if (cleared > 0) console.log(`🧹 Cleared ${cleared} cache folders from ${profileDir}`);
 }
 
 // ─── GEMINI ───────────────────────────────────────────
@@ -583,8 +609,11 @@ app.listen(PORT, () => {
   console.log(`⚡ Gemini concurrency: ${GEMINI_CONCURRENCY} tabs | Meta AI: ${META_CONCURRENCY} tabs`);
   if (IS_LOCAL) {
     console.log(`📂 Mode: LOCAL — pipeline overlap enabled`);
-    console.log(`   profile_gemini: ${fs.existsSync(path.join(__dirname, "profile_gemini")) ? "✅ found" : "❌ missing"}`);
-    console.log(`   profile_meta:   ${fs.existsSync(path.join(__dirname, "profile_meta")) ? "✅ found" : "❌ missing"}`);
+    // Hien thi tat ca account slots tim duoc
+    const gSlots = getProfileSlots("gemini");
+    const mSlots = getProfileSlots("meta");
+    console.log(`   Gemini accounts: ${gSlots.length > 0 ? gSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js gemini 1"}`);
+    console.log(`   Meta AI accounts: ${mSlots.length > 0 ? mSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js meta 1"}`);
   } else {
     console.log(`☁️  Mode: CLOUD`);
     console.log(`   COOKIES_GEMINI: ${process.env.COOKIES_GEMINI ? "✅ set" : "❌ missing"}`);
