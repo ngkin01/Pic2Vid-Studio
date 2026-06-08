@@ -55,15 +55,13 @@ function log(id, msg) {
 }
 
 // ─── PARALLEL PIPELINE ────────────────────────────────
-// Gemini: max 3 tabs song song
-// Meta AI: 1 tab tuần tự (nhưng chạy overlap với Gemini)
-const geminiQueue = [];   // { jobId, imagePath, geminiPrompt, metaPrompt }
-const metaQueue = [];     // { jobId, enhancedPath, metaPrompt }
+const geminiQueue = [];
+const metaQueue = [];
 
-let geminiActive = 0;     // Số tab Gemini đang chạy
-let metaActive = 0;       // Số tab Meta AI đang chạy
+let geminiActive = 0;
+let metaActive = 0;
 
-const MAX_RETRIES = 2; // Retry tối đa 2 lần (tổng 3 attempts)
+const MAX_RETRIES = 2;
 
 function processGeminiQueue() {
   while (geminiActive < GEMINI_CONCURRENCY && geminiQueue.length > 0) {
@@ -86,7 +84,7 @@ function processGeminiQueue() {
           task.retries++;
           log(task.jobId, `⚠️ Gemini failed (attempt ${task.retries}/${MAX_RETRIES+1}): ${err.message} — retrying...`);
           update(task.jobId, { step: "queued" });
-          geminiQueue.unshift(task); // đưa lại đầu queue
+          geminiQueue.unshift(task);
         } else {
           log(task.jobId, `❌ Gemini error (all ${MAX_RETRIES+1} attempts failed): ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
@@ -94,11 +92,10 @@ function processGeminiQueue() {
       })
       .finally(async () => {
         geminiActive--;
-        // Khi Gemini queue trong -> dong context, clear cache, mo lai
+        // FIX: Bỏ pre-warm sau clear — chỉ close và clear, mở lại khi có job mới
         if (geminiQueue.length === 0 && geminiActive === 0) {
           if (geminiCtx) { await geminiCtx.close().catch(() => {}); geminiCtx = null; }
           clearBrowserCache("profile_gemini");
-          await getContext("profile_gemini", "COOKIES_GEMINI").catch(() => {});
         }
         processGeminiQueue();
       });
@@ -118,24 +115,23 @@ function processMetaQueue() {
         log(task.jobId, "🎉 Done!");
       })
       .catch(err => {
+        // FIX: Tách rõ retry vs error, bỏ update() thừa ở cuối
         if (task.retries < MAX_RETRIES) {
           task.retries++;
           log(task.jobId, `⚠️ Meta AI failed (attempt ${task.retries}/${MAX_RETRIES+1}): ${err.message} — retrying...`);
-          update(task.jobId, { step: "gemini_done" }); // revert to waiting for meta
+          update(task.jobId, { step: "gemini_done" });
           metaQueue.unshift(task);
         } else {
           log(task.jobId, `❌ Meta AI error (all ${MAX_RETRIES+1} attempts failed): ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
         }
-        update(task.jobId, { step: "error", error: err.message });
       })
       .finally(async () => {
         metaActive--;
-        // Khi Meta AI queue trong -> dong context, clear cache, mo lai
+        // FIX: Bỏ pre-warm sau clear — chỉ close và clear, mở lại khi có job mới
         if (metaQueue.length === 0 && metaActive === 0) {
           if (metaCtx) { await metaCtx.close().catch(() => {}); metaCtx = null; }
           clearBrowserCache("profile_meta");
-          await getContext("profile_meta", "COOKIES_META").catch(() => {});
         }
         processMetaQueue();
       });
@@ -150,7 +146,6 @@ function loadCookieState(envKey) {
   catch { return null; }
 }
 
-// Shared browser contexts (local mode)
 let geminiCtx = null;
 let metaCtx = null;
 
@@ -158,13 +153,12 @@ async function getContext(profileDir, cookieEnvKey) {
   if (IS_LOCAL) {
     const isGemini = profileDir.includes("gemini");
 
-    // Reuse existing context — nhưng kiểm tra còn sống không
     if (isGemini && geminiCtx) {
       try {
-        await geminiCtx.pages(); // test if context is alive
+        await geminiCtx.pages();
         return { ctx: geminiCtx, shared: true };
       } catch {
-        geminiCtx = null; // context died, recreate
+        geminiCtx = null;
       }
     }
     if (!isGemini && metaCtx) {
@@ -212,24 +206,17 @@ async function releaseContext(profileDir, ctxInfo) {
     await ctxInfo.ctx.close().catch(() => {});
     if (ctxInfo.browser) await ctxInfo.browser.close().catch(() => {});
   }
-  // Shared contexts stay open — closed on server shutdown or idle timeout
 }
-
 
 // Clear cache cua browser profile -- CHI xoa cache, KHONG dung cookies/session
 function clearBrowserCache(profileDir) {
   const safeCacheFoldersInDefault = [
     "Cache", "Cache_Data", "Code Cache", "GPUCache",
     "DawnCache", "ShaderCache", "blob_storage",
-    "GrShaderCache",
-    "GraphiteDawnCache",
-    "BrowserMetrics",
-    "DeferredBrowserMetrics",
-    "extensions_crx_cache",
-    "component_crx_cache",
-    "Crashpad",
-    "Safe Browsing",
-    "segmentation_platform",
+    "GrShaderCache", "GraphiteDawnCache",
+    "BrowserMetrics", "DeferredBrowserMetrics",
+    "extensions_crx_cache", "component_crx_cache",
+    "Crashpad", "Safe Browsing", "segmentation_platform",
   ];
   const safeCacheFoldersTopLevel = [
     "Cache", "Code Cache", "GPUCache", "ShaderCache",
@@ -284,40 +271,33 @@ async function runGemini(jobId, imagePath, prompt) {
   try {
     await page.goto("https://gemini.google.com/app/new", { waitUntil: "domcontentloaded" });
 
-    // Chờ prompt box xuất hiện thay vì wait cứng 8s
     await page.waitForSelector('[role="textbox"], textarea, div[contenteditable="true"]', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(2000); // buffer nhỏ cho JS init
+    await page.waitForTimeout(2000);
 
     if (page.url().includes("accounts.google.com")) throw new Error("Gemini session expired");
 
     log(jobId, "📤 Uploading image...");
 
-    // Click nút upload (mat-badge selector ổn định)
     let uploadBtn = await page.$('button.mat-badge[aria-haspopup="menu"]');
     if (!uploadBtn) {
       uploadBtn = await page.$('button[aria-label*="upload" i], button[aria-label*="tải lên" i], button[aria-label*="Upload" i]');
     }
     if (uploadBtn) {
       await uploadBtn.click();
-      // Chờ menu xuất hiện
       await page.waitForSelector('[role="menuitem"][aria-haspopup="dialog"]', { timeout: 5000 }).catch(() => {});
     }
 
-    // Click menu item upload
     const uploadMenuItem = await page.$('[role="menuitem"][aria-haspopup="dialog"]');
     if (uploadMenuItem) {
       await uploadMenuItem.click();
-      // Chờ file input xuất hiện
       await page.waitForSelector('input[type="file"]', { timeout: 5000 }).catch(() => {});
     }
 
-    // Set file
     const fileInput = await page.$('input[type="file"]');
     if (!fileInput) throw new Error("Upload input not found on Gemini");
     await fileInput.setInputFiles(imagePath);
     log(jobId, "✅ Image uploaded");
 
-    // Đóng menu + dismiss consent
     await page.keyboard.press("Escape");
     await page.waitForTimeout(500);
 
@@ -330,29 +310,22 @@ async function runGemini(jobId, imagePath, prompt) {
       }
     }
 
-    // Chờ file được attach (thumbnail xuất hiện)
     await page.waitForTimeout(2000);
 
-    // Tìm prompt box
     let promptBox = await page.$('[aria-label*="prompt" i][role="textbox"], [aria-label*="câu lệnh" i][role="textbox"]');
     if (!promptBox) promptBox = await page.$('div[contenteditable="true"]');
     if (!promptBox) promptBox = await page.$("textarea");
     if (!promptBox) {
-      // Retry với wait
       await page.waitForSelector('[role="textbox"], textarea', { timeout: 10000 });
       promptBox = await page.$('[role="textbox"]') || await page.$("textarea");
     }
     if (!promptBox) throw new Error("Prompt box not found");
 
-    // Snapshot ảnh hiện có trước khi gửi prompt
     const existingImgSrcs = new Set();
-    const existingImgAreas = new Set();
     for (const img of await page.$$("img")) {
       try {
         const src = await img.getAttribute("src");
         if (src) existingImgSrcs.add(src);
-        const box = await img.boundingBox();
-        if (box) existingImgAreas.add(`${Math.round(box.width)}x${Math.round(box.height)}`);
       } catch (_) {}
     }
 
@@ -360,7 +333,6 @@ async function runGemini(jobId, imagePath, prompt) {
     await promptBox.press("Enter");
     log(jobId, "⏳ Waiting for Gemini to generate...");
 
-    // Poll ảnh MỚI (max 2.5 phút, poll mỗi 3s thay vì 5s)
     let largestImg = null;
     let largestArea = 0;
     for (let attempt = 0; attempt < 50; attempt++) {
@@ -372,13 +344,9 @@ async function runGemini(jobId, imagePath, prompt) {
           const src = await img.getAttribute("src");
           if (src && existingImgSrcs.has(src)) continue;
           const box = await img.boundingBox();
-          // Ảnh generated phải có cả width VÀ height > 200px
           if (!box || box.width < 200 || box.height < 200) continue;
           const area = box.width * box.height;
-          if (area > largestArea) {
-            largestArea = area;
-            largestImg = img;
-          }
+          if (area > largestArea) { largestArea = area; largestImg = img; }
         } catch (_) {}
       }
       if (largestImg && largestArea > 80000) {
@@ -394,13 +362,10 @@ async function runGemini(jobId, imagePath, prompt) {
     const imgBox = await largestImg.boundingBox();
     log(jobId, `📐 Image ${Math.round(imgBox.width)}x${Math.round(imgBox.height)}`);
 
-    // Download ảnh — ưu tiên fetch src trực tiếp
     const imgSrc = await largestImg.getAttribute("src");
     const outPath = path.join(__dirname, "outputs", `${jobId}_enhanced.png`);
-
     let saved = false;
 
-    // Method 1: fetch (works for http/data URLs)
     if (!saved && imgSrc && (imgSrc.startsWith("http") || imgSrc.startsWith("data:"))) {
       try {
         const imgBuffer = await page.evaluate(async (url) => {
@@ -416,7 +381,6 @@ async function runGemini(jobId, imagePath, prompt) {
       }
     }
 
-    // Method 2: canvas toDataURL (works for blob: and any visible image)
     if (!saved) {
       try {
         const base64 = await page.evaluate((imgEl) => {
@@ -438,7 +402,6 @@ async function runGemini(jobId, imagePath, prompt) {
       }
     }
 
-    // Method 3: screenshot element (last resort)
     if (!saved) {
       await largestImg.screenshot({ path: outPath });
       const size = fs.statSync(outPath).size;
@@ -461,7 +424,6 @@ async function runMetaAI(jobId, imagePath, prompt) {
   try {
     await page.goto("https://meta.ai", { waitUntil: "domcontentloaded", timeout: 60000 });
 
-    // Chờ file input xuất hiện thay vì wait cứng 8s
     await page.waitForSelector('input[type="file"]', { timeout: 20000 }).catch(() => {});
     await page.waitForTimeout(2000);
 
@@ -475,7 +437,6 @@ async function runMetaAI(jobId, imagePath, prompt) {
     log(jobId, "✅ Image uploaded");
     await page.mouse.click(200, 200);
 
-    // Chờ prompt box sẵn sàng thay vì wait cứng 12s
     await page.waitForSelector('textarea, div[contenteditable="true"]', { timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(3000);
 
@@ -489,7 +450,6 @@ async function runMetaAI(jobId, imagePath, prompt) {
     await promptBox.press("Enter");
     log(jobId, "⏳ Generating video (~3 min)...");
 
-    // Poll video (mỗi 3s thay vì 5s, max 6 phút)
     let videoUrl = null;
     for (let i = 0; i < 120; i++) {
       await page.waitForTimeout(3000);
@@ -508,7 +468,6 @@ async function runMetaAI(jobId, imagePath, prompt) {
     }
 
     if (!videoUrl) {
-      // Try download button
       for (const btn of await page.$$("button, a")) {
         try {
           const txt = `${await btn.getAttribute("aria-label")||""} ${await btn.innerText().catch(()=>"")}`.toLowerCase();
