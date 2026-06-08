@@ -520,7 +520,9 @@
       transform: scale(0.98);
       filter: brightness(0.9);
     }
-  </style>
+  
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
 </head>
 <body>
 <div class="ambient-bg">
@@ -613,15 +615,13 @@
 <i class="ti ti-chevron-down prompt-arrow" id="gArrow"></i>
 </div>
 <div class="prompt-body" id="gBody" onclick="event.stopPropagation()">
-<textarea id="geminiPrompt">Turn this image into a premium ecommerce product photo.
+<textarea id="geminiPrompt" oninput="savePromptManual('g')">Turn this image into a premium ecommerce product photo.
 
 Luxury background.
 Soft cinematic lighting.
 Ultra realistic.
 Professional advertising photography.</textarea>
-<button onclick="savePromptManual('g');event.stopPropagation()" id="saveGBtn" style="margin-top:10px;width:100%;padding:10px 0;border-radius:12px;background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.4);color:#1D9E75;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-  <i class="ti ti-device-floppy"></i> Save prompt
-</button>
+
 </div>
 </div>
 <div class="prompt-item" style="margin-bottom:24px">
@@ -641,7 +641,14 @@ Professional advertising photography.</textarea>
   </select>
   <div class="custom-select" id="customCatSelect">
     <div class="custom-select-trigger" onclick="toggleCatDropdown()">
-      <span id="customCatLabel">Default Prompt</span>
+      <div style="display:flex;align-items:center;gap:0;min-width:0;">
+        <span id="customCatLabel">Default Prompt</span>
+        <span id="saveIndicator" style="display:none;align-items:center;gap:3px;font-size:11px;font-weight:600;color:#1D9E75;margin-left:6px;opacity:0;transition:opacity 0.3s;white-space:nowrap;">
+          <svg id="saveSpinner" width="11" height="11" viewBox="0 0 11 11" style="display:none;animation:spin 0.7s linear infinite;flex-shrink:0;"><circle cx="5.5" cy="5.5" r="4.5" fill="none" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="14 8"/></svg>
+          <svg id="saveCheck" width="11" height="11" viewBox="0 0 11 11" style="display:none;flex-shrink:0;"><polyline points="2,6 4.5,8.5 9,3" fill="none" stroke="#1D9E75" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span id="saveLabel"></span>
+        </span>
+      </div>
       <i class="ti ti-chevron-down custom-select-arrow"></i>
     </div>
     <div class="custom-select-dropdown" id="customCatDropdown">
@@ -654,8 +661,8 @@ Professional advertising photography.</textarea>
     </div>
   </div>
 </div>
-<textarea id="metaPrompt">A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.</textarea>
-<button onclick="savePromptManual('m');event.stopPropagation()" id="saveMBtn" style="margin-top:10px;width:100%;padding:10px 0;border-radius:12px;background:rgba(29,158,117,0.15);border:1px solid rgba(29,158,117,0.4);color:#1D9E75;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;"><i class="ti ti-device-floppy"></i> Save prompt</button>
+<textarea id="metaPrompt" oninput="savePromptManual('m')">A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.</textarea>
+
 </div>
 </div>
 <div class="status-bar" id="statusBar" style="display: none;">
@@ -859,27 +866,52 @@ function savePrompts() {
   } catch(_) {}
 }
 
+let _saveTimer = null;
 function savePromptManual(type) {
-  try {
-    const btnId = type === 'g' ? 'saveGBtn' : 'saveMBtn';
-    const btn = document.getElementById(btnId);
-    if (type === 'g') {
-      // Lưu Gemini prompt (1 cái duy nhất)
+  if (type !== 'm') {
+    // Gemini: luu im lang, khong animation
+    try {
       const saved = JSON.parse(localStorage.getItem('ps_saved_prompts') || '{}');
       saved.geminiPrompt = document.getElementById('geminiPrompt').value;
       localStorage.setItem('ps_saved_prompts', JSON.stringify(saved));
-    } else {
-      // Lưu Meta prompt theo category index hiện tại
+    } catch(_) {}
+    return;
+  }
+  // Meta: show spinner debounce 500ms
+  const ind = document.getElementById('saveIndicator');
+  const spinner = document.getElementById('saveSpinner');
+  const check = document.getElementById('saveCheck');
+  const label = document.getElementById('saveLabel');
+  if (!ind) return;
+  // Reset ve trang thai typing
+  clearTimeout(_saveTimer);
+  ind.style.display = 'none';
+  ind.style.opacity = '0';
+  _saveTimer = setTimeout(() => {
+    // Show spinner
+    ind.style.display = 'inline-flex';
+    spinner.style.display = 'inline-block';
+    check.style.display = 'none';
+    label.textContent = '';
+    requestAnimationFrame(() => { ind.style.opacity = '1'; });
+    // Luu
+    try {
       const metaSaved = getSavedMetaPrompts();
       metaSaved[currentCategoryIndex] = document.getElementById('metaPrompt').value;
       localStorage.setItem('ps_meta_prompts', JSON.stringify(metaSaved));
-    }
-    // Feedback
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<i class="ti ti-check"></i> Saved!';
-    btn.style.background = 'rgba(29,158,117,0.35)';
-    setTimeout(() => { btn.innerHTML = orig; btn.style.background = 'rgba(29,158,117,0.15)'; }, 1500);
-  } catch(_) {}
+    } catch(_) {}
+    // Sau 600ms doi sang check + Saved
+    setTimeout(() => {
+      spinner.style.display = 'none';
+      check.style.display = 'inline-block';
+      label.textContent = 'Saved';
+      // An sau 2s
+      setTimeout(() => {
+        ind.style.opacity = '0';
+        setTimeout(() => { ind.style.display = 'none'; }, 300);
+      }, 2000);
+    }, 600);
+  }, 500);
 }
 
 function loadPrompts() {
