@@ -63,6 +63,18 @@ let metaActive = 0;
 
 const MAX_RETRIES = 2;
 
+// Chỉ clear cache 1 lần khi TẤT CẢ queue + tab đều xong
+async function checkAndCleanup() {
+  if (geminiQueue.length === 0 && geminiActive === 0 && metaQueue.length === 0 && metaActive === 0) {
+    console.log("\n🧹 All queues empty — closing browsers & clearing cache...");
+    if (geminiCtx) { await geminiCtx.close().catch(() => {}); geminiCtx = null; }
+    if (metaCtx) { await metaCtx.close().catch(() => {}); metaCtx = null; }
+    clearBrowserCache("profile_gemini");
+    clearBrowserCache("profile_meta");
+    console.log("✅ Cleanup done — ready for next batch.\n");
+  }
+}
+
 function processGeminiQueue() {
   while (geminiActive < GEMINI_CONCURRENCY && geminiQueue.length > 0) {
     const task = geminiQueue.shift();
@@ -92,12 +104,8 @@ function processGeminiQueue() {
       })
       .finally(async () => {
         geminiActive--;
-        // FIX: Bỏ pre-warm sau clear — chỉ close và clear, mở lại khi có job mới
-        if (geminiQueue.length === 0 && geminiActive === 0) {
-          if (geminiCtx) { await geminiCtx.close().catch(() => {}); geminiCtx = null; }
-          clearBrowserCache("profile_gemini");
-        }
         processGeminiQueue();
+        checkAndCleanup();
       });
   }
 }
@@ -128,12 +136,8 @@ function processMetaQueue() {
       })
       .finally(async () => {
         metaActive--;
-        // FIX: Bỏ pre-warm sau clear — chỉ close và clear, mở lại khi có job mới
-        if (metaQueue.length === 0 && metaActive === 0) {
-          if (metaCtx) { await metaCtx.close().catch(() => {}); metaCtx = null; }
-          clearBrowserCache("profile_meta");
-        }
         processMetaQueue();
+        checkAndCleanup();
       });
   }
 }
