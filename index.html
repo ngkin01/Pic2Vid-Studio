@@ -320,6 +320,38 @@
       box-shadow: 0 2px 12px rgba(0,80,226,0.15);
     }
     .prompt-arrow { font-size: 18px; color: rgba(255, 255, 255, 0.4); transition: transform 0.4s; }
+    /* Skip Gemini — premium toggle card */
+    .skip-toggle-card {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 10px 14px;
+      background: rgba(255,255,255,.04);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 250ms ease;
+      user-select: none;
+    }
+    .skip-toggle-card:hover { background: rgba(255,255,255,.07); }
+    .skip-toggle-card:has(.skip-native-input:checked) { background: rgba(29,158,117,.08); }
+    .skip-native-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+    .skip-toggle-left { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .skip-gemini-icon { position: relative; width: 16px; height: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .skip-gemini-icon svg { width: 14px; height: 14px; transition: opacity 250ms ease; }
+    .skip-native-input:checked ~ .skip-toggle-left .skip-gemini-icon svg { opacity: .35; }
+    .skip-slash {
+      position: absolute; top: 50%; left: 50%; width: 18px; height: 1.5px;
+      background: rgba(255,255,255,.6); border-radius: 2px;
+      transform: translate(-50%,-50%) rotate(-45deg) scaleX(0); transform-origin: center;
+      opacity: 0; transition: opacity 250ms ease, transform 250ms ease;
+    }
+    .skip-native-input:checked ~ .skip-toggle-left .skip-slash { opacity: 1; transform: translate(-50%,-50%) rotate(-45deg) scaleX(1); }
+    .skip-toggle-title { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+    .skip-switch { position: relative; flex-shrink: 0; width: 36px; height: 20px; border-radius: 999px; background: rgba(255,255,255,.15); transition: background 250ms ease; }
+    .skip-switch-knob { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.35); transition: transform 250ms ease; }
+    .skip-native-input:checked ~ .skip-switch { background: #1D9E75; }
+    .skip-native-input:checked ~ .skip-switch .skip-switch-knob { transform: translateX(16px); }
+    .skip-native-input:focus-visible ~ .skip-switch { box-shadow: 0 0 0 3px rgba(29,158,117,.35); }
     .prompt-body { display: none; padding: 20px; background: rgba(20,22,26,0.92); border: 0.5px solid rgba(255, 255, 255, 0.12); border-top: none; border-radius: 0 0 20px 20px; margin-top: 0; padding-top: 20px; overflow: visible; position: relative; }
     .prompt-item-open .prompt-toggle { border-radius: 20px 20px 0 0; border-bottom-color: transparent; }
     .prompt-body textarea { 
@@ -615,18 +647,23 @@
 <i class="ti ti-chevron-down prompt-arrow" id="gArrow"></i>
 </div>
 <div class="prompt-body" id="gBody" onclick="event.stopPropagation()">
-<textarea id="geminiPrompt" oninput="savePromptManual('g')">Turn this image into a premium ecommerce product photo.
-
-Luxury background.
-Soft cinematic lighting.
-Ultra realistic.
-Professional advertising photography.</textarea>
+<textarea id="geminiPrompt" oninput="savePromptManual('g')">Transform the reference image into a premium ecommerce product photo.
+Treat the reference image as the single source of truth.
+Keep the entire product completely untouched. Preserve the product exactly as it appears in the original image, including its shape, colors, materials, texture, packaging, labels, logo, artwork, visible text, typography, proportions, and every design detail.
+Do not regenerate, redesign, recreate, replace, retouch, or modify any part of the product. Do not change or rewrite any letters, words, numbers, or text on the packaging or labels.
+Only replace the original background and improve the lighting.
+Create a premium commercial environment that naturally complements the product category. Choose suitable colors, materials, textures, and subtle decorative elements based on the product while keeping the composition clean, elegant, and professional.
+The background should enhance the product without distracting from it or covering any part of the product. Use minimal supporting props only when appropriate. Avoid clutter, unrealistic scenes, excessive decorations, or oversized objects.
+Use professional commercial studio lighting with soft shadows, balanced highlights, and realistic reflections. Enhance image quality, sharpness, and clarity while preserving realistic colors and materials.
+Center the product with sufficient negative space around it for future image-to-video animation.
+The final image should look like authentic premium ecommerce product photography captured in a professional studio, not AI-generated artwork.
+Ultra realistic. 4K. No text. No watermark.</textarea>
 
 </div>
 </div>
 <div class="prompt-item" style="margin-bottom:24px">
 <div class="prompt-toggle" onclick="togglePrompt('m')">
-<div class="prompt-toggle-left"><span class="ptag ptag-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="meta_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_grad)"/></svg>Meta AI</span> Video prompt</div>
+<div class="prompt-toggle-left"><span class="ptag ptag-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="meta_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_grad)"/></svg><span id="videoProviderTag">Meta AI</span></span> Video prompt</div>
 <i class="ti ti-chevron-down prompt-arrow" id="mArrow"></i>
 </div>
 <div class="prompt-body" id="mBody" onclick="event.stopPropagation()">
@@ -661,9 +698,39 @@ Professional advertising photography.</textarea>
     </div>
   </div>
 </div>
-<textarea id="metaPrompt" oninput="savePromptManual('m')">A cinematic TikTok product commercial with single product focus and realistic product details preserved accurately. Dynamic cinematic camera movement and natural product interaction. Clean aesthetic environment with professional lighting, soft reflections, and subtle background motion. Background and atmosphere matching the product naturally. Premium advertisement style, visually engaging and modern, ultra realistic, 4k, vertical 9:16.</textarea>
+<textarea id="metaPrompt" oninput="savePromptManual('m')">Transform the reference image into a premium ecommerce product photo.
+Treat the reference image as the single source of truth.
+Keep the entire product completely untouched. Preserve the product exactly as it appears in the original image, including its shape, colors, materials, texture, packaging, labels, logo, artwork, visible text, typography, proportions, and every design detail.
+Do not regenerate, redesign, recreate, replace, retouch, or modify any part of the product. Do not change or rewrite any letters, words, numbers, or text on the packaging or labels.
+Only replace the original background and improve the lighting.
+Create a premium commercial environment that naturally complements the product category. Choose suitable colors, materials, textures, and subtle decorative elements based on the product while keeping the composition clean, elegant, and professional.
+The background should enhance the product without distracting from it or covering any part of the product. Use minimal supporting props only when appropriate. Avoid clutter, unrealistic scenes, excessive decorations, or oversized objects.
+Use professional commercial studio lighting with soft shadows, balanced highlights, and realistic reflections. Enhance image quality, sharpness, and clarity while preserving realistic colors and materials.
+Center the product with sufficient negative space around it for future image-to-video animation.
+The final image should look like authentic premium ecommerce product photography captured in a professional studio, not AI-generated artwork.
+Ultra realistic. 4K. No text. No watermark.</textarea>
 
 </div>
+</div>
+<div class="prompt-item" style="margin-bottom:24px">
+  <div style="padding:0 2px 10px 2px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.03em;">Video Provider</div>
+  <div class="mode-tabs" style="margin:0;">
+    <div class="mode-tab active" id="providerMeta" onclick="setProvider('meta')">Meta AI</div>
+    <div class="mode-tab" id="providerVibes" onclick="setProvider('vibes')">Vibes.ai</div>
+  </div>
+</div>
+<div class="prompt-item" style="margin-bottom:24px">
+  <label class="skip-toggle-card" for="skipGeminiCheckbox" id="skipGeminiCard">
+    <input type="checkbox" id="skipGeminiCheckbox" class="skip-native-input" onchange="toggleSkipGemini()" onkeydown="if(event.key==='Enter'){event.preventDefault();this.click();}">
+    <span class="skip-toggle-left">
+      <span class="skip-gemini-icon">
+        <svg viewBox="0 0 65 65" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gm_grad_skip" x1="18.447" y1="43.42" x2="52.153" y2="15.004" gradientUnits="userSpaceOnUse"><stop stop-color="#4893FC"/><stop offset=".27" stop-color="#4893FC"/><stop offset=".777" stop-color="#969DFF"/><stop offset="1" stop-color="#BD99FE"/></linearGradient></defs><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z" fill="url(#gm_grad_skip)"/></svg>
+        <span class="skip-slash"></span>
+      </span>
+      <span class="skip-toggle-title">Skip Gemini</span>
+    </span>
+    <span class="skip-switch"><span class="skip-switch-knob"></span></span>
+  </label>
 </div>
 <div class="status-bar" id="statusBar" style="display: none;">
 <div class="status-dot pulse" id="statusDot" style="width:10px;height:10px;border-radius:50%;background:#1D9E75;box-shadow:0 0 10px #1D9E75"></div>
@@ -712,6 +779,26 @@ let batchJobIds = [];
 let pollInterval = null;
 let batchPollInterval = null;
 let lastBatchResults = [];
+let selectedProvider = 'meta';
+let skipGemini = false;
+
+function setProvider(p) {
+  selectedProvider = p;
+  document.getElementById('providerMeta').classList.toggle('active', p === 'meta');
+  document.getElementById('providerVibes').classList.toggle('active', p === 'vibes');
+  const label = document.getElementById('sl2');
+  if (label) label.textContent = p === 'vibes' ? 'Vibes.ai' : 'Meta AI';
+  const tag = document.getElementById('videoProviderTag');
+  if (tag) tag.textContent = p === 'vibes' ? 'Vibes.ai' : 'Meta AI';
+}
+
+function toggleSkipGemini() {
+  skipGemini = document.getElementById('skipGeminiCheckbox').checked;
+  const gBody = document.getElementById('gBody');
+  if (gBody) gBody.style.opacity = skipGemini ? '0.4' : '1';
+  const gLabel = document.getElementById('sl1');
+  if (gLabel) gLabel.textContent = skipGemini ? 'Gemini (skip)' : 'Gemini';
+}
 
 // Keep alive
 setInterval(() => { fetch(BACKEND + '/health').catch(() => {}); }, 30000);
@@ -822,6 +909,8 @@ async function retryFailed() {
   failedFiles.forEach(f => form.append('images', f));
   form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
   form.append('metaPrompt', document.getElementById('metaPrompt').value);
+  form.append('provider', selectedProvider);
+  form.append('skipGemini', skipGemini ? 'true' : 'false');
   try {
     const res = await fetch(BACKEND + '/batch', { method: 'POST', body: form });
     const data = await res.json();
@@ -1172,6 +1261,8 @@ async function startSingle() {
   form.append('image', selectedFile);
   form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
   form.append('metaPrompt', document.getElementById('metaPrompt').value);
+  form.append('provider', selectedProvider);
+  form.append('skipGemini', skipGemini ? 'true' : 'false');
   try {
     const res = await fetch(BACKEND + '/start', { method: 'POST', body: form });
     if (!res.ok) throw new Error('Server error');
@@ -1260,6 +1351,8 @@ async function startBatch() {
   selectedFiles.forEach(f => form.append('images', f));
   form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
   form.append('metaPrompt', document.getElementById('metaPrompt').value);
+  form.append('provider', selectedProvider);
+  form.append('skipGemini', skipGemini ? 'true' : 'false');
   try {
     const res = await fetch(BACKEND + '/batch', { method: 'POST', body: form });
     const data = await res.json();
