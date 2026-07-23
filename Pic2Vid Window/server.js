@@ -54,22 +54,15 @@ function log(id, msg) {
 }
 
 // ─── PIPELINE OVERLAP QUEUES ──────────────────────────
-// Gemini queue và Meta AI queue chạy độc lập
-// Gemini xong → tự đẩy vào Meta AI queue ngay
+// Gemini queue → chờ cả batch xong Gemini → gom lại đẩy vào Vibes.ai
 const geminiQueue = [];   // { jobId, imagePath, geminiPrompt, metaPrompt }
-const metaQueue = [];
 const vibesQueue = [];    // { groupId, tasks: [{jobId, imagePath}] } — 1 phan tu = 1 batch project
 
 const GEMINI_CONCURRENCY = 3; // 3 tab Gemini song song
-const META_CONCURRENCY = 2;   // 2 tab Meta AI song song
 const VIBES_CONCURRENCY = 1;  // 1 account Vibes -> chay tuan tu
 let geminiActive = 0;
-let metaActive = 0;
 let vibesActive = 0;
 
-// Provider duoc chon cho moi group (mac dinh "meta")
-// groupProvider[groupId] = "meta" | "vibes"
-const groupProvider = {};
 // Dung de tranh day trung 1 group vao vibesQueue nhieu lan
 const vibesGroupQueued = new Set();
 
@@ -93,20 +86,14 @@ async function checkAndClearCacheIfGroupDone(groupId) {
     await sharedCtx.gemini.close().catch(() => {});
     sharedCtx.gemini = null;
   }
-  if (metaActive === 0 && sharedCtx.meta) {
-    await sharedCtx.meta.close().catch(() => {});
-    sharedCtx.meta = null;
-  }
   if (vibesActive === 0 && sharedCtx.vibes) {
     await sharedCtx.vibes.close().catch(() => {});
     sharedCtx.vibes = null;
   }
   const gSlots = getProfileSlots("gemini");
-  const mSlots = getProfileSlots("meta");
   const vSlots = getProfileSlots("vibes");
-  [...gSlots, ...mSlots, ...vSlots].forEach(({ profileDir }) => clearBrowserCache(profileDir));
+  [...gSlots, ...vSlots].forEach(({ profileDir }) => clearBrowserCache(profileDir));
   delete batchGroups[groupId];
-  delete groupProvider[groupId];
   vibesGroupQueued.delete(groupId);
   console.log("✅ All done — browser windows closed.");
 }
@@ -121,21 +108,11 @@ function processGeminiQueue() {
       try {
         const enhanced = await runGemini(task.jobId, task.imagePath, task.geminiPrompt);
         update(task.jobId, { step: "gemini_done", enhancedImage: enhanced });
-        const provider = groupProvider[task.groupId] || "meta";
-
-        if (provider === "vibes") {
-          log(task.jobId, "✅ Gemini done — chờ cả batch xong Gemini để qua Vibes.ai");
-          checkGeminiGroupDoneForVibes(task.groupId);
-        } else {
-          log(task.jobId, "✅ Gemini done — queued for Meta AI");
-          const localPath = path.join(__dirname, enhanced.replace("/outputs/", "outputs/"));
-          metaQueue.push({ jobId: task.jobId, groupId: task.groupId, enhancedPath: localPath, metaPrompt: task.metaPrompt });
-          processMetaQueue();
-        }
+        log(task.jobId, "✅ Gemini done — chờ cả batch xong Gemini để qua Vibes.ai");
+        checkGeminiGroupDoneForVibes(task.groupId);
 
       } catch (err) {
         const retryCount = (jobs[task.jobId]?.retryCount || 0);
-        const provider = groupProvider[task.groupId] || "meta";
         if (isQuotaError(err.message)) {
           log(task.jobId, `⚠️ Gemini quota/session: ${err.message.slice(0,80)}`);
           const rotated = await rotateAccount("gemini");
@@ -146,7 +123,7 @@ function processGeminiQueue() {
           } else {
             log(task.jobId, `❌ Gemini quota, no more accounts`);
             update(task.jobId, { step: "error", error: err.message });
-            if (provider === "vibes") checkGeminiGroupDoneForVibes(task.groupId);
+            checkGeminiGroupDoneForVibes(task.groupId);
           }
         } else if (retryCount < 2) {
           update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
@@ -155,7 +132,7 @@ function processGeminiQueue() {
         } else {
           log(task.jobId, `❌ Gemini error after 2 retries: ${err.message}`);
           update(task.jobId, { step: "error", error: err.message });
-          if (provider === "vibes") checkGeminiGroupDoneForVibes(task.groupId);
+          checkGeminiGroupDoneForVibes(task.groupId);
         }
       } finally {
         geminiActive--;
@@ -169,50 +146,6 @@ function processGeminiQueue() {
           if (slot) clearBrowserCache(slot.profileDir);
         }
         processGeminiQueue();
-      }
-    })();
-  }
-}
-
-function processMetaQueue() {
-  while (metaActive < META_CONCURRENCY && metaQueue.length > 0) {
-    const task = metaQueue.shift();
-    metaActive++;
-    update(task.jobId, { step: "meta_running" });
-
-    (async () => {
-      try {
-        const video = await runMetaAI(task.jobId, task.enhancedPath, task.metaPrompt);
-        update(task.jobId, { step: "meta_done", videoUrl: video });
-        log(task.jobId, "🎉 Done!");
-        if (task.groupId) checkAndClearCacheIfGroupDone(task.groupId);
-
-      } catch (err) {
-        const retryCount = (jobs[task.jobId]?.retryCount || 0);
-        if (isQuotaError(err.message)) {
-          log(task.jobId, `⚠️ Meta AI quota/session: ${err.message.slice(0,80)}`);
-          const rotated = await rotateAccount("meta");
-          if (rotated) {
-            log(task.jobId, `🔄 Switched Meta AI account, retrying...`);
-            update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
-            metaQueue.unshift(task);
-          } else {
-            log(task.jobId, `❌ Meta AI quota, no more accounts`);
-            update(task.jobId, { step: "error", error: err.message });
-            if (task.groupId) checkAndClearCacheIfGroupDone(task.groupId);
-          }
-        } else if (retryCount < 2) {
-          update(task.jobId, { step: "queued", retryCount: retryCount + 1, error: null });
-          log(task.jobId, `⚠️ Meta AI failed (${err.message}) — retry ${retryCount + 1}/2...`);
-          metaQueue.push(task);
-        } else {
-          log(task.jobId, `❌ Meta AI error after 2 retries: ${err.message}`);
-          update(task.jobId, { step: "error", error: err.message });
-          if (task.groupId) checkAndClearCacheIfGroupDone(task.groupId);
-        }
-      } finally {
-        metaActive--;
-        processMetaQueue();
       }
     })();
   }
@@ -300,10 +233,10 @@ function getProfileSlots(service) {
 }
 
 // Track slot hien tai cho moi service
-const currentSlot = { gemini: null, meta: null, vibes: null };
+const currentSlot = { gemini: null, vibes: null };
 // Shared contexts — 1 browser per service
-const sharedCtx = { gemini: null, meta: null, vibes: null };
-const ctxLock   = { gemini: false, meta: false, vibes: false };
+const sharedCtx = { gemini: null, vibes: null };
+const ctxLock   = { gemini: false, vibes: false };
 
 // Keyword nhan biet loi quota/session -> can rotate account
 const QUOTA_KEYWORDS = [
@@ -342,7 +275,7 @@ async function rotateAccount(service) {
 }
 
 async function getSharedPage(service) {
-  const cookieKeyMap = { gemini: "COOKIES_GEMINI", meta: "COOKIES_META", vibes: "COOKIES_VIBES" };
+  const cookieKeyMap = { gemini: "COOKIES_GEMINI", vibes: "COOKIES_VIBES" };
   const cookieKey = cookieKeyMap[service];
 
   // Cho neu thread khac dang khoi tao context
@@ -614,116 +547,32 @@ async function runGemini(jobId, imagePath, prompt) {
   }
 }
 
-// ─── META AI ──────────────────────────────────────────
-async function runMetaAI(jobId, imagePath, prompt) {
-  log(jobId, "🚀 Opening Meta AI...");
-  const page = await getSharedPage("meta");
-  try {
-    await page.goto("https://meta.ai", { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForTimeout(8000);
-
-    const fileInput = await page.$('input[type="file"]');
-    if (!fileInput) throw new Error("Not logged in to Meta AI");
-
-    log(jobId, "📤 Uploading image...");
-    await fileInput.setInputFiles(imagePath);
-    log(jobId, "✅ Image uploaded");
-    await page.mouse.click(200, 200);
-    await page.waitForTimeout(12000);
-
-    let promptBox = null;
-    for (let i = 0; i < 30; i++) {
-      let box = await page.$("textarea");
-      if (box && await box.isVisible().catch(() => false)) { promptBox = box; break; }
-      box = await page.$('div[contenteditable="true"]');
-      if (box) { promptBox = box; break; }
-      await page.waitForTimeout(2000);
-    }
-    if (!promptBox) throw new Error("Prompt box not found on Meta AI");
-    await promptBox.fill(prompt);
-    await promptBox.press("Enter");
-    log(jobId, "⏳ Generating video (~3 min)...");
-
-    let videoUrl = null;
-    for (let i = 0; i < 72; i++) {
-      await page.waitForTimeout(5000);
-      const video = await page.$("video");
-      if (video) {
-        const src = await video.getAttribute("src");
-        if (src && !src.startsWith("blob:")) { videoUrl = src; break; }
-      }
-      const links = await page.$$('a[href*=".mp4"], a[download]');
-      for (const link of links) {
-        const href = await link.getAttribute("href");
-        if (href && href.includes(".mp4")) { videoUrl = href; break; }
-      }
-      if (videoUrl) break;
-      if (i % 6 === 0) log(jobId, `⏳ Still generating... (${Math.round(i * 5 / 60)} min)`);
-    }
-
-    if (!videoUrl) {
-      for (const btn of await page.$$("button, a")) {
-        try {
-          const txt = `${await btn.getAttribute("aria-label")||""} ${await btn.innerText().catch(()=>"")}`.toLowerCase();
-          if (txt.includes("download")) {
-            const dlPromise = page.waitForEvent("download", { timeout: 30000 });
-            await btn.click();
-            const dl = await dlPromise;
-            const outPath = path.join(__dirname, "outputs", `${jobId}_video.mp4`);
-            await dl.saveAs(outPath);
-            log(jobId, "✅ Video downloaded");
-            return `/outputs/${jobId}_video.mp4`;
-          }
-        } catch (_) {}
-      }
-      throw new Error("Video not found after 6 minutes");
-    }
-
-    log(jobId, "📥 Downloading video...");
-    const outPath = path.join(__dirname, "outputs", `${jobId}_video.mp4`);
-    const buf = await page.evaluate(async (url) => {
-      const r = await fetch(url);
-      const ab = await r.arrayBuffer();
-      return Array.from(new Uint8Array(ab));
-    }, videoUrl);
-    fs.writeFileSync(outPath, Buffer.from(buf));
-    log(jobId, "✅ Video saved");
-    return `/outputs/${jobId}_video.mp4`;
-  } finally {
-    await page.close().catch(() => {});
-  }
-}
-
 // ─── VIBES.AI ─────────────────────────────────────────
-// Lay danh sach "tile" (anh hoac video) trong khu vuc noi dung chinh cua project,
-// sap xep theo thu tu doc-hieu: hang tren truoc, trong 1 hang thi trai truoc.
-// Bo qua sidebar ben trai (~240px) va cac icon nho (khong phai tile that).
+// Lay danh sach "tile" (anh hoac video) trong luoi chinh cua project (man hinh TRUOC KHI
+// bam vao anh nao de mo editor). CONFIRMED qua Inspect Element thuc te tren Vibes.ai:
+// moi o trong luoi la 1 phan tu co attribute rieng biet, on dinh, khong phu thuoc class/style:
+//   data-analytics-id="creation_gallery.thumbnail_click"
+// Dung thang attribute nay thay vi doan qua toa do/kich thuoc cua <img>/<video> ben trong
+// (kieu cu tung gay dem sai/dedup nham y het loi da gap va sua o getEditorThumbnails).
 async function getMediaTiles(page) {
-  const handles = await page.$$("img, video");
+  const handles = await page.$$('[data-analytics-id="creation_gallery.thumbnail_click"]');
   const withBox = [];
   for (const h of handles) {
     try {
       if (!(await h.isVisible())) continue;
       const box = await h.boundingBox();
       if (!box) continue;
-      if (box.x < 80) continue; // sidebar (chi con icon rail khi o trong 1 project)
-      if (box.width < 100 || box.height < 100) continue; // icon nho, khong phai tile that
       withBox.push({ handle: h, box });
     } catch (_) {}
   }
+  // Sap theo thu tu doc-hieu (hang tren truoc, trong 1 hang thi trai truoc) — giu lam luoi
+  // an toan phong khi DOM order khong khop thu tu hien thi (vd grid tu sap xep lai vi tri).
   withBox.sort((a, b) => {
     const rowDiff = Math.round(a.box.y / 50) - Math.round(b.box.y / 50);
     if (rowDiff !== 0) return rowDiff;
     return a.box.x - b.box.x;
   });
-  // Dedup: nhieu web app render 2 the <img> chong len nhau cho CUNG 1 o
-  // (vd anh placeholder mo + anh that) — chi giu 1 phan tu cho moi vi tri toa do.
-  const deduped = [];
-  for (const item of withBox) {
-    const isDup = deduped.some(d => Math.abs(d.box.x - item.box.x) < 15 && Math.abs(d.box.y - item.box.y) < 15);
-    if (!isDup) deduped.push(item);
-  }
-  return deduped.map(w => w.handle);
+  return withBox.map(w => w.handle);
 }
 
 // Chup screenshot khi loi xay ra de debug — luu vao outputs/ de Hi xem duoc qua URL
@@ -736,84 +585,102 @@ async function debugScreenshot(page, jobId, label) {
   } catch (_) {}
 }
 
-// Sau khi mo editor 1 anh, day thumbnail cac anh trong project nam sat le trai (hep hon nhieu
-// so voi tile trong grid — ~70-100px). Ham nay lay danh sach thumbnail do, sap theo tren->duoi.
+// getEditorThumbnails: dai thumbnail co the dai hon 1 man hinh khi batch nhieu anh (7+),
+// nen phai CUON DAN TU TREN XUONG, chup tung doan roi gop lai — khong duoc nhay thang
+// xuong day (se lam mat cac item o dau danh sach do bi cuon khuat len tren).
 //
-// FIX: truoc day chi quet "img", nen khi 1 video (video0, video1...) da tao xong
-// duoc render bang the <video> trong dai thumbnail nay, no bi BO SOT khoi mang ket qua.
-// Vi cong thuc vi tri currentPos = i + videosGeneratedSoFar gia dinh moi video da tao
-// CUNG chiem 1 o trong dai thumbnail (dung nhu thuc te: video moi luon bi chen len dau,
-// giong het logic o getMediaTiles), nen phai quet ca "video" thi array moi dem du so o,
-// tranh lech vi tri tu anh thu 2 tro di.
+// CONFIRMED qua Inspect Element thuc te tren Vibes.ai (khong con doan mo qua toa do/
+// overflow nhu cac ban truoc — nguyen nhan gay dem sai/dem 0 lien tuc):
+// Moi o thumbnail trong dai la 1 <button class="w_60px h_60px ..."> kich thuoc co dinh
+// 60x60px, ben trong luon chua dung 1 <img> hoac <video> dai dien cho anh goc / video da tao.
 async function getEditorThumbnails(page) {
-  const handles = await page.$$("img, video");
-  const withBox = [];
-  for (const h of handles) {
-    try {
-      if (!(await h.isVisible())) continue;
-      const box = await h.boundingBox();
-      if (!box) continue;
-      if (box.x > 150) continue; // chi lay cot thumbnail sat trai
-      if (box.y < 100) continue; // loai icon logo/nav sat mep tren (Vibes logo, badge BETA...)
-      if (box.width < 40 || box.height < 40) continue; // icon UI thuong nho hon thumbnail that
-      withBox.push({ handle: h, box });
-    } catch (_) {}
+  const attr = `data-vibes-seen-${Date.now()}`;
+  const collected = [];
+
+  async function captureNewOnes() {
+    const handles = await page.$$(`button.w_60px.h_60px:not([${attr}])`);
+    for (const h of handles) {
+      try {
+        if (!(await h.isVisible())) continue;
+        const box = await h.boundingBox();
+        if (!box) continue;
+        if (box.x > 200) continue; // chi lay cot thumbnail sat trai, phong khi co button 60x60 khac o cho khac tren trang
+        const media = await h.$("img, video");
+        if (!media) continue; // button dung kich thuoc nhung khong chua anh/video -> khong phai o thumbnail that
+        await h.evaluate((el, a) => el.setAttribute(a, "1"), attr).catch(() => {});
+        collected.push({ handle: h, box });
+      } catch (_) {}
+    }
   }
-  withBox.sort((a, b) => a.box.y - b.box.y);
-  // Dedup: cung ly do nhu getMediaTiles — tranh dem dup 1 o thumbnail thanh 2 phan tu.
-  const deduped = [];
-  for (const item of withBox) {
-    const isDup = deduped.some(d => Math.abs(d.box.x - item.box.x) < 15 && Math.abs(d.box.y - item.box.y) < 15);
-    if (!isDup) deduped.push(item);
+
+  await captureNewOnes();
+
+  // Neu dai co danh sach ao/virtualized (chi render cac o dang hien tren man hinh —
+  // thuong gap voi batch nhieu anh 7+, con it anh thi khong can) -> tim dung khung cuon
+  // bang cach LEO LEN tu 1 button THAT da tim duoc (dang tin cay hon han so voi do mu
+  // ca trang theo overflow/scrollHeight cua cac ban truoc, von hay tra ve sai khung hoac null).
+  if (collected.length > 0) {
+    const anchor = collected[0].handle;
+    const containerHandle = await anchor.evaluateHandle(el => {
+      let node = el.parentElement;
+      while (node) {
+        const s = getComputedStyle(node);
+        if (
+          (s.overflowY === "auto" || s.overflowY === "scroll" || s.overflowY === "hidden") &&
+          node.scrollHeight > node.clientHeight + 5
+        ) {
+          return node;
+        }
+        node = node.parentElement;
+      }
+      return null;
+    }).catch(() => null);
+    const containerEl = containerHandle ? containerHandle.asElement() : null;
+
+    if (containerEl) {
+      // Co khung can cuon that (dai dai hon 1 man hinh) -> quet lai tu dau theo dung thu tu tren->duoi
+      collected.length = 0;
+      await page.evaluate(a => {
+        document.querySelectorAll(`[${a}]`).forEach(el => el.removeAttribute(a));
+      }, attr).catch(() => {});
+      await containerEl.evaluate(el => { el.scrollTop = 0; }).catch(() => {});
+      await page.waitForTimeout(300);
+      await captureNewOnes();
+      for (let step = 0; step < 20; step++) {
+        const scrolled = await containerEl.evaluate(el => {
+          const before = el.scrollTop;
+          el.scrollTop = Math.min(el.scrollHeight, el.scrollTop + el.clientHeight * 0.8);
+          return el.scrollTop !== before;
+        }).catch(() => false);
+        if (!scrolled) break;
+        await page.waitForTimeout(300);
+        await captureNewOnes();
+      }
+    }
+    if (containerHandle) await containerHandle.dispose().catch(() => {});
   }
-  return deduped.map(w => w.handle);
+
+  // Don dep attribute tam de khong anh huong lan goi sau
+  try {
+    await page.evaluate((a) => {
+      document.querySelectorAll(`[${a}]`).forEach(el => el.removeAttribute(a));
+    }, attr);
+  } catch (_) {}
+
+  // collected da theo dung thu tu phat hien tren->duoi
+  return collected.map(c => c.handle);
 }
 
-// Tim nut nam GAN GOC DUOI-PHAI cua 1 khung (vd: nut gui prompt hinh mui ten,
-// luon nam o goc duoi ben phai o nhap "Describe how you want to animate...")
-async function findButtonBottomRightOf(page, boxHandleOrLocator) {
-  const box = await boxHandleOrLocator.boundingBox();
-  if (!box) return null;
-  const buttons = await page.$$("button");
-  let best = null, bestScore = Infinity;
-  for (const btn of buttons) {
-    try {
-      if (!(await btn.isVisible())) continue;
-      const bbox = await btn.boundingBox();
-      if (!bbox) continue;
-      const withinY = bbox.y >= box.y - 5 && bbox.y <= box.y + box.height + 30;
-      const rightHalf = bbox.x >= box.x + box.width * 0.5;
-      if (withinY && rightHalf) {
-        const dist = Math.abs((box.x + box.width) - (bbox.x + bbox.width));
-        if (dist < bestScore) { bestScore = dist; best = btn; }
-      }
-    } catch (_) {}
-  }
-  return best;
+// Nut gui prompt (mui ten len, o goc duoi-phai o nhap prompt) — CONFIRMED qua Inspect
+// Element: nut nay luon co aria-label="Animate", khong con can doan qua toa do nua.
+async function findAnimateSubmitButton(page) {
+  return await page.$('button[aria-label="Animate"]');
 }
 
-// Nut download video nam ngay ben trai nut "Add to timeline" o goc tren phai.
-async function findDownloadIconLeftOfAddToTimeline(page) {
-  const addBtn = page.getByText("Add to timeline", { exact: false }).first();
-  if (!(await addBtn.count())) return null;
-  const box = await addBtn.boundingBox();
-  if (!box) return null;
-  const buttons = await page.$$("button");
-  let best = null, bestDist = Infinity;
-  for (const btn of buttons) {
-    try {
-      if (!(await btn.isVisible())) continue;
-      const bbox = await btn.boundingBox();
-      if (!bbox) continue;
-      const sameRow = Math.abs(bbox.y - box.y) < 20;
-      const isLeft = (bbox.x + bbox.width) <= box.x + 5;
-      if (sameRow && isLeft) {
-        const dist = box.x - (bbox.x + bbox.width);
-        if (dist >= 0 && dist < bestDist) { bestDist = dist; best = btn; }
-      }
-    } catch (_) {}
-  }
-  return best;
+// Nut download video canh "Add to timeline" — CONFIRMED qua Inspect Element: nut nay
+// luon co aria-label="Download", khong con can do toa do tuong doi voi "Add to timeline" nua.
+async function findDownloadButton(page) {
+  return await page.$('button[aria-label="Download"]');
 }
 
 // runVibesBatch: xu ly 1 project cho ca 1 batch —
@@ -829,6 +696,59 @@ async function runVibesBatch(groupId, tasks) {
   try {
     await page.goto("https://vibes.ai/projects", { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForTimeout(4000);
+
+    // Phat hien phien dang nhap het han / chua dang nhap: khi vao thang /projects ma
+    // khong con session, Vibes.ai se DA nguoi dung ve trang landing (vd chi con "vibes.ai",
+    // hien nut "Log In" to o goc phai) thay vi bao loi ro rang. Neu chay tiep se fail mo ho
+    // o buoc tim nut "Tao moi" ben duoi (timeout 20s, thong bao khong nghia).
+    // -> Kiem tra 2 tin hieu: (1) URL khong con chua /projects/ NUA sau redirect,
+    //    (2) co nut "Log In" dang hien. Neu dung ca 2 -> dung lai, CHO nguoi dung tu dang
+    //    nhap thu cong trong chinh cua so Chrome dang mo (toi da 5 phut), roi tu dong tiep tuc.
+    const onLandingPage = !/\/projects/i.test(page.url());
+    let loginBtn = page.getByText("Log In", { exact: false })
+      .or(page.getByText("Đăng nhập", { exact: false })).first();
+    let loginBtnVisible = await loginBtn.isVisible().catch(() => false);
+
+    if (onLandingPage && loginBtnVisible) {
+      // Vibes.ai da luu san thong tin dang nhap trong profile (khong yeu cau lai mat khau/OTP) —
+      // chi can bam nut "Log In" la vao thang giao dien lam viec, KHONG can nguoi dung thao tac them.
+      // Nen tu dong click thay vi dung lai cho nguoi dung, thu lai vai lan phong khi lan click dau
+      // chua kip navigate hoac trang can render them 1 nhip.
+      log(firstJobId, `🔐 Phát hiện Vibes.ai đang ở màn hình chưa đăng nhập — tự động bấm "Log In"...`);
+      let reLoggedIn = false;
+      for (let attempt = 0; attempt < 3 && !reLoggedIn; attempt++) {
+        try { await loginBtn.click({ timeout: 8000 }); } catch (_) {}
+        reLoggedIn = await page.waitForFunction(
+          () => location.pathname.includes("/projects") || !document.body.innerText.includes("Log In"),
+          null,
+          { timeout: 20000, polling: 1000 }
+        ).then(() => true).catch(() => false);
+        if (!reLoggedIn) {
+          await page.waitForTimeout(2000);
+          loginBtn = page.getByText("Log In", { exact: false })
+            .or(page.getByText("Đăng nhập", { exact: false })).first();
+          loginBtnVisible = await loginBtn.isVisible().catch(() => false);
+          if (!loginBtnVisible) break; // co the da vao duoc nhung chua kip khop dieu kien tren
+        }
+      }
+      if (!reLoggedIn) {
+        // Fallback an toan: neu tu dong click 3 lan van khong vao duoc (vd nut doi vi tri/ten,
+        // hoac can them buoc xac thuc that su) — cho nguoi dung tu bam thu cong, toi da 5 phut,
+        // thay vi fail luon.
+        log(firstJobId, `⚠️ Tự động đăng nhập không thành công sau vài lần thử — vui lòng bấm "Log In" thủ công trên cửa sổ Chrome đang mở, job sẽ tự tiếp tục (chờ tối đa 5 phút)...`);
+        reLoggedIn = await page.waitForFunction(
+          () => location.pathname.includes("/projects") || !document.body.innerText.includes("Log In"),
+          null,
+          { timeout: 5 * 60 * 1000, polling: 2000 }
+        ).then(() => true).catch(() => false);
+        if (!reLoggedIn) {
+          throw new Error("Hết thời gian chờ (5 phút) đăng nhập lại Vibes.ai — vui lòng đăng nhập thủ công rồi chạy lại job.");
+        }
+      }
+      log(firstJobId, "✅ Đã vào được giao diện Vibes.ai — tiếp tục xử lý...");
+      await page.goto("https://vibes.ai/projects", { waitUntil: "domcontentloaded", timeout: 60000 });
+      await page.waitForTimeout(3000);
+    }
 
     log(firstJobId, "📁 Tạo project mới...");
     let createBtn = page.getByText("Create new", { exact: false })
@@ -900,14 +820,38 @@ async function runVibesBatch(groupId, tasks) {
           await tile.click({ timeout: 10000 });
           await page.waitForTimeout(1500);
         } else {
-          // Cac anh sau: click vao thumbnail tuong ung trong dai ben trai editor
-          // Cho them vai giay de UI on dinh sau khi video vua tao xong — tranh bat
-          // trung trang thai tam thoi (video moi tao co the render du 1 phan tu
-          // trong vai giay dau truoc khi UI gop lai dung so luong).
-          await page.waitForTimeout(3000);
-          const thumbs = await getEditorThumbnails(page);
-          log(task.jobId, `🔍 Tìm thấy ${thumbs.length} thumbnail trong editor (cần vị trí ${currentPos})`);
+          // Cac anh sau: click vao thumbnail tuong ung trong dai ben trai editor.
+          // Tong so tile PHAI dung bang: tong so anh goc (khong doi) + so video da tao xong —
+          // neu dem ra khac con so nay, nghia la UI chua kip render du (video vua xong
+          // chua hien vao dai), phai cho them va dem lai, KHONG duoc chon dai neu sai so.
+          const expectedCount = tasks.length + videosGeneratedSoFar;
+          let thumbs = [];
+          let matched = false;
+
+          for (let round = 0; round < 2 && !matched; round++) {
+            // round 0: thu dem binh thuong. round 1: neu round 0 that bai, RELOAD trang 1 lan
+            // truoc khi thu lai — vi co truong hop Vibes bi lag/loi mang khien dai thumbnail
+            // khong tu cap nhat du video moi da tao xong that (giao dien chinh van hien dung,
+            // download van chay duoc, nhung dai thumbnail ben trai bi "dung" khong len tile moi).
+            // Reload se ep trinh duyet lay lai dung trang thai moi nhat tu server Vibes.
+            if (round === 1) {
+              log(task.jobId, `🔄 Đếm thumbnail vẫn không khớp — reload lại trang Vibes để đồng bộ...`);
+              await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 }).catch(() => {});
+              await page.waitForTimeout(3000);
+            }
+            for (let attempt = 0; attempt < 6; attempt++) {
+              await page.waitForTimeout(attempt === 0 ? 3000 : 2500);
+              thumbs = await getEditorThumbnails(page);
+              if (thumbs.length === expectedCount) { matched = true; break; }
+              log(task.jobId, `⏳ Đếm thumbnail chưa khớp (${thumbs.length}/${expectedCount} kỳ vọng), thử đếm lại...`);
+            }
+          }
+
+          log(task.jobId, `🔍 Tìm thấy ${thumbs.length} thumbnail trong editor (cần vị trí ${currentPos}, kỳ vọng ${expectedCount})`);
           await debugScreenshot(page, task.jobId, `thumb_count_${thumbs.length}`);
+          if (!matched) {
+            throw new Error(`Số thumbnail không khớp kỳ vọng (${thumbs.length}/${expectedCount}) sau nhiều lần thử kể cả reload — dừng để tránh chọn nhầm ảnh`);
+          }
           const thumb = thumbs[currentPos];
           if (!thumb) throw new Error(`Không tìm thấy thumbnail ở vị trí ${currentPos} trong editor (tổng ${thumbs.length})`);
           try {
@@ -921,55 +865,181 @@ async function runVibesBatch(groupId, tasks) {
           await page.waitForTimeout(1500);
         }
 
-        // Bam "Manual animate"
-        let manualBtn = page.getByText("Manual animate", { exact: false }).first();
-        await manualBtn.waitFor({ state: "visible", timeout: 15000 });
-        await manualBtn.click({ timeout: 10000 });
-        await page.waitForTimeout(1000);
+        // Vibes doi khi tu bao loi tao video ("Không tạo được — Đã xảy ra lỗi. Vui lòng thử lại.")
+        // — day la loi phia Vibes, khong phai loi selector. Can phat hien va TU DONG THU LAI
+        // dung anh nay (khong bo qua, khong chuyen anh khac) toi da 3 lan.
+        let animateSuccess = false;
+        let lastAnimateErr = null;
 
-        // Nhap prompt vao o "Describe how you want to animate..."
-        const promptBox = page.getByPlaceholder("Describe how you want to animate", { exact: false }).first();
-        await promptBox.waitFor({ state: "visible", timeout: 15000 });
-        await promptBox.fill(task.metaPrompt || "Turn this image into a cinematic TikTok video. Smooth motion. Luxury commercial style.");
-
-        // Bam nut gui (mui ten len, goc duoi-phai cua o prompt)
-        const submitBtn = await findButtonBottomRightOf(page, promptBox);
-        if (!submitBtn) throw new Error("Không tìm thấy nút gửi prompt (mũi tên)");
-        const urlBeforeSubmit = page.url(); // luu URL truoc khi gui, de so sanh phat hien URL doi
-        await submitBtn.click({ timeout: 10000 });
-        log(task.jobId, "⏳ Đang tạo hoạt ảnh (Vibes.ai, ~vài phút)...");
-
-        // Cho den khi video tao xong. Uu tien phat hien qua URL doi sang /content/{id}
-        // (dau hieu dang tin cay nhat, khong phu thuoc ngon ngu UI — vd khi UI tieng Anh
-        // thi khong co badge "Đã tạo xong hoạt ảnh!" nhu ban tieng Viet).
-        // Van giu check text lam phuong an du phong (ca tieng Viet lan tieng Anh).
-        let done = false;
-        for (let w = 0; w < 60; w++) {
-          await page.waitForTimeout(4000);
-          const urlChangedToContent = page.url() !== urlBeforeSubmit && page.url().includes("/content/");
-          if (urlChangedToContent) { done = true; break; }
-          const doneBadge = await page.$('text="Đã tạo xong hoạt ảnh!"')
-            || await page.$('text=/[Đđ]ã tạo xong/i')
-            || await page.$('text=/animation complete/i')
-            || await page.$('text=/^done$/i');
-          if (doneBadge) { done = true; break; }
-          if (w > 0 && w % 5 === 0) log(task.jobId, `⏳ Vẫn đang tạo... (${w * 4}s)`);
+        // Ham mo lai dung anh nay (click lai dung vi tri) — dung khi retry, vi co truong hop
+        // lan thu truoc bi loi khien trang nhay nham sang che do "video" (nut Manual animate
+        // bi disabled do khong con la anh nua), phai click lai thumbnail de quay ve dung trang thai.
+        async function reopenImage() {
+          try {
+            if (i === 0) {
+              const t = await getMediaTiles(page);
+              const tl = t[currentPos];
+              if (tl) await tl.click({ timeout: 8000 }).catch(() => {});
+            } else {
+              const th = await getEditorThumbnails(page);
+              const tt = th[currentPos];
+              if (tt) await tt.click({ timeout: 8000 }).catch(() => {});
+            }
+            await page.waitForTimeout(1200);
+          } catch (_) {}
         }
-        if (!done) throw new Error("Video chưa tạo xong sau 4 phút (không thấy URL đổi hoặc badge hoàn thành)");
+
+        // Ham dung chung: cho toi da 1 phut de biet video xong hay Vibes bao loi that su.
+        // failBadge duoc "debounce" — thay vi tin ngay lan dau thay, doi them 2s roi kiem tra
+        // lai 1 lan nua, chi ket luan la loi that neu VAN CON thay (tranh bat trung 1 khoanh khac
+        // thoang qua roi Vibes tu phuc hoi, gay ket luan sai la that bai trong khi thuc ra dang chay binh thuong).
+        async function waitForVibesDone(urlBeforeSubmit) {
+          let done = false;
+          let vibesFailed = false;
+          let elapsedMs = 0;
+          const maxWaitMs = 60000; // 1 phut
+          while (elapsedMs < maxWaitMs) {
+            const interval = elapsedMs < 20000 ? 1500 : 4000;
+            await page.waitForTimeout(interval);
+            elapsedMs += interval;
+
+            const urlChangedToContent = urlBeforeSubmit != null && page.url() !== urlBeforeSubmit && page.url().includes("/content/");
+            if (urlChangedToContent) { done = true; break; }
+            const doneBadge = await page.$('text="Đã tạo xong hoạt ảnh!"')
+              || await page.$('text=/[Đđ]ã tạo xong/i')
+              || await page.$('text=/animation complete/i')
+              || await page.$('text=/^done$/i');
+            if (doneBadge) { done = true; break; }
+
+            const failBadge = await page.$('text=/[Kk]hông tạo được/i')
+              || await page.$('text=/[Đđ]ã xảy ra lỗi\\. Vui lòng thử lại/i')
+              || await page.$('text=/[Kk]hông có câu lệnh nào/i')
+              || await page.$('text=/failed to (create|generate|animate)/i')
+              || await page.$('text=/something went wrong/i')
+              || await page.$('text=/an unexpected error occurred/i')
+              || await page.$('text=/no (command|prompt) (provided|for)/i');
+            if (failBadge) {
+              // Debounce: doi 2s roi kiem tra lai, chi ket luan that bai neu VAN CON thay
+              await page.waitForTimeout(2000);
+              elapsedMs += 2000;
+              const stillFailing = await page.$('text=/[Kk]hông tạo được/i')
+                || await page.$('text=/[Đđ]ã xảy ra lỗi\\. Vui lòng thử lại/i')
+                || await page.$('text=/[Kk]hông có câu lệnh nào/i')
+                || await page.$('text=/failed to (create|generate|animate)/i')
+                || await page.$('text=/something went wrong/i')
+                || await page.$('text=/an unexpected error occurred/i')
+                || await page.$('text=/no (command|prompt) (provided|for)/i');
+              if (stillFailing) { vibesFailed = true; break; }
+              // Neu bien mat roi thi coi nhu bao dong gia, tiep tuc vong lap cho binh thuong
+            }
+            if (elapsedMs % 20000 < interval) log(task.jobId, `⏳ Vẫn đang tạo... (${Math.round(elapsedMs / 1000)}s)`);
+          }
+          return { done, vibesFailed };
+        }
+
+        for (let animAttempt = 1; animAttempt <= 3 && !animateSuccess; animAttempt++) {
+          try {
+            if (animAttempt > 1) {
+              log(task.jobId, `🔁 Vibes báo lỗi tạo video — thử lại lần ${animAttempt} cho ảnh này...`);
+              // Dong banner loi neu con hien (khong bat buoc phai thanh cong)
+              try {
+                const closeX = await page.$('button:near(:text("Không tạo được"), 80)');
+                if (closeX) await closeX.click({ timeout: 3000 }).catch(() => {});
+              } catch (_) {}
+              await page.waitForTimeout(1000);
+              // Click lai dung thumbnail — phong khi lan truoc trang bi nhay sang che do
+              // "video" lam nut Manual animate bi disabled/khong con o dung trang image nua.
+              await reopenImage();
+            }
+
+            // Bam "Manual animate"
+            let manualBtn = page.getByText("Manual animate", { exact: false }).first();
+            await manualBtn.waitFor({ state: "visible", timeout: 15000 });
+            await manualBtn.waitFor({ state: "attached", timeout: 3000 }).catch(() => {});
+            const isEnabled = await manualBtn.isEnabled().catch(() => false);
+            if (!isEnabled) {
+              // Nut bi khoa co the vi 2 ly do khac nhau:
+              // (1) Dang THAT SU generate tu lan submit truoc (khong phai loi that, chi la
+              //     lan poll truoc bat nham 1 khoanh khac thoang qua) — badge "Đang tạo hoạt ảnh..." con hien.
+              // (2) Trang bi ket sai trang (vd da la video roi) — khong co badge dang tao.
+              // Chi coi la loi that (throw) o truong hop (2); truong hop (1) thi cho tiep binh thuong.
+              const stillGenerating = await page.$('text=/[Đđ]ang tạo hoạt ảnh/i') || await page.$('text=/generating/i');
+              if (stillGenerating) {
+                log(task.jobId, `ℹ️ Nút bị khoá nhưng đang thực sự tạo video (không phải lỗi) — tiếp tục chờ...`);
+                const { done, vibesFailed } = await waitForVibesDone(null);
+                if (vibesFailed) throw new Error("Vibes.ai báo lỗi tạo video (Không tạo được)");
+                if (!done) throw new Error("Video chưa tạo xong sau 1 phút (không thấy URL đổi hoặc badge hoàn thành)");
+                animateSuccess = true;
+                continue;
+              }
+              throw new Error("Nút 'Manual animate' đang bị khoá (trang có thể đang ở chế độ video) — sẽ mở lại ảnh và thử tiếp");
+            }
+            await manualBtn.click({ timeout: 8000 });
+            await page.waitForTimeout(1000);
+
+            // Nhap prompt vao o "Describe how you want to animate..."
+            const promptBox = page.getByPlaceholder("Describe how you want to animate", { exact: false }).first();
+            await promptBox.waitFor({ state: "visible", timeout: 15000 });
+            await promptBox.fill(task.metaPrompt || "Turn this image into a cinematic TikTok video. Smooth motion. Luxury commercial style.");
+
+            // Bam nut gui (mui ten len, goc duoi-phai cua o prompt)
+            const submitBtn = await findAnimateSubmitButton(page);
+            if (!submitBtn) throw new Error("Không tìm thấy nút gửi prompt (mũi tên)");
+            const urlBeforeSubmit = page.url(); // luu URL truoc khi gui, de so sanh phat hien URL doi
+            await submitBtn.click({ timeout: 10000 });
+            log(task.jobId, "⏳ Đang tạo hoạt ảnh (Vibes.ai, ~vài phút)...");
+
+            const { done, vibesFailed } = await waitForVibesDone(urlBeforeSubmit);
+            if (vibesFailed) throw new Error("Vibes.ai báo lỗi tạo video (Không tạo được)");
+            if (!done) throw new Error("Video chưa tạo xong sau 1 phút (không thấy URL đổi hoặc badge hoàn thành)");
+            animateSuccess = true;
+          } catch (animErr) {
+            lastAnimateErr = animErr;
+            log(task.jobId, `⚠️ Animate lần ${animAttempt} lỗi: ${animErr.message}`);
+          }
+        }
+        if (!animateSuccess) throw lastAnimateErr || new Error("Animate thất bại sau nhiều lần thử");
         await page.waitForTimeout(1000);
 
         // Bam nut download (icon canh "Add to timeline")
-        const downloadBtn = await findDownloadIconLeftOfAddToTimeline(page);
-        if (!downloadBtn) throw new Error("Không tìm thấy nút download video");
-        const dlPromise = page.waitForEvent("download", { timeout: 30000 });
-        await downloadBtn.click();
-        const dl = await dlPromise;
         const outPath = path.join(__dirname, "outputs", `${task.jobId}_video.mp4`);
-        await dl.saveAs(outPath);
+        let downloadOk = false;
+        let lastDlErr = null;
+
+        for (let attempt = 1; attempt <= 2 && !downloadOk; attempt++) {
+          try {
+            const downloadBtn = await findDownloadButton(page);
+            if (!downloadBtn) throw new Error("Không tìm thấy nút download video");
+            const dlPromise = page.waitForEvent("download", { timeout: 30000 });
+            await downloadBtn.click();
+            const dl = await dlPromise;
+            // Log ten file goc de doi chieu — neu bi le/tro nham download cua job khac se thay ngay trong log
+            log(task.jobId, `📥 Nhận download: ${dl.suggestedFilename()} (lần thử ${attempt})`);
+            await dl.saveAs(outPath);
+
+            // Xac minh file thuc su ton tai va co dung luong hop ly — khong tin mu quang
+            // vao viec saveAs() khong nem loi, vi co the bi gan nham download cua job khac.
+            const stat = await fs.promises.stat(outPath).catch(() => null);
+            if (!stat || stat.size < 10000) {
+              throw new Error(`File tải về bất thường (dung lượng ${stat ? stat.size : 0} bytes)`);
+            }
+            log(task.jobId, `✅ Video đã lưu, dung lượng ${(stat.size / 1024).toFixed(0)}KB`);
+            downloadOk = true;
+          } catch (err) {
+            lastDlErr = err;
+            log(task.jobId, `⚠️ Download lần ${attempt} lỗi: ${err.message}`);
+            if (attempt < 2) await page.waitForTimeout(2000);
+          }
+        }
+        if (!downloadOk) throw lastDlErr || new Error("Download thất bại sau 2 lần thử");
 
         update(task.jobId, { step: "meta_done", videoUrl: `/outputs/${task.jobId}_video.mp4` });
         log(task.jobId, "🎉 Done! (Vibes.ai)");
         videosGeneratedSoFar++;
+
+        // Cho them 1.5s truoc khi qua job tiep theo, tranh su kien download con "vuong" lai
+        // gay nham lan cho waitForEvent('download') cua job sau.
+        await page.waitForTimeout(1500);
 
       } catch (err) {
         await debugScreenshot(page, task.jobId, "vibes_step_error");
@@ -1003,11 +1073,9 @@ app.post("/start", upload.single("image"), (req, res) => {
   // jobs[id].metaPrompt khi gom successTasks, thay vi bi mat prompt goc.
   createJob(jobId, req.file.originalname, 0, geminiPrompt, metaPrompt);
   log(jobId, "📋 Job queued");
-  const provider = req.body.provider === "vibes" ? "vibes" : "meta";
   const skipGemini = req.body.skipGemini === "true";
   const groupId = jobId; // single job — groupId == jobId
   batchGroups[groupId] = [jobId];
-  groupProvider[groupId] = provider;
 
   if (skipGemini) {
     const ext = path.extname(req.file.path) || ".jpg";
@@ -1016,12 +1084,7 @@ app.post("/start", upload.single("image"), (req, res) => {
     fs.copyFileSync(req.file.path, enhancedPath);
     update(jobId, { step: "gemini_done", enhancedImage: `/outputs/${enhancedFileName}` });
     log(jobId, "⏭️ Bỏ qua Gemini — dùng ảnh gốc để tạo video");
-    if (provider === "vibes") {
-      checkGeminiGroupDoneForVibes(groupId);
-    } else {
-      metaQueue.push({ jobId, groupId, enhancedPath, metaPrompt });
-      processMetaQueue();
-    }
+    checkGeminiGroupDoneForVibes(groupId);
   } else {
     geminiQueue.push({ jobId, groupId, imagePath: req.file.path, geminiPrompt, metaPrompt });
     processGeminiQueue();
@@ -1034,11 +1097,9 @@ app.post("/batch", upload.array("images", 20), (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: "No images" });
   const geminiPrompt = req.body.geminiPrompt || "Turn this into a premium ecommerce product photo. Luxury background. Soft cinematic lighting. Ultra realistic.";
   const metaPrompt = req.body.metaPrompt || "Turn this image into a cinematic TikTok video. Smooth motion. Luxury commercial style.";
-  const provider = req.body.provider === "vibes" ? "vibes" : "meta";
   const skipGemini = req.body.skipGemini === "true";
 
   const groupId = uuidv4(); // ID chung cho ca batch nay
-  groupProvider[groupId] = provider;
   const jobIds = req.files.map((file, i) => {
     const jobId = uuidv4();
     // FIX: truyen prompt vao createJob ngay tu dau — xem giai thich o route /start
@@ -1052,10 +1113,7 @@ app.post("/batch", upload.array("images", 20), (req, res) => {
       fs.copyFileSync(file.path, enhancedPath);
       update(jobId, { step: "gemini_done", enhancedImage: `/outputs/${enhancedFileName}` });
       log(jobId, "⏭️ Bỏ qua Gemini — dùng ảnh gốc để tạo video");
-      if (provider === "meta") {
-        metaQueue.push({ jobId, groupId, enhancedPath, metaPrompt });
-      }
-      // vibes: gom sau khi tao het jobIds, goi checkGeminiGroupDoneForVibes 1 lan ben duoi
+      // gom sau khi tao het jobIds, goi checkGeminiGroupDoneForVibes 1 lan ben duoi
     } else {
       geminiQueue.push({ jobId, groupId, imagePath: file.path, geminiPrompt, metaPrompt });
     }
@@ -1065,12 +1123,11 @@ app.post("/batch", upload.array("images", 20), (req, res) => {
   batchGroups[groupId] = jobIds;
 
   if (skipGemini) {
-    if (provider === "vibes") checkGeminiGroupDoneForVibes(groupId);
-    else processMetaQueue();
+    checkGeminiGroupDoneForVibes(groupId);
   } else {
     processGeminiQueue();
   }
-  res.json({ jobIds, total: jobIds.length, provider });
+  res.json({ jobIds, total: jobIds.length, provider: "vibes" });
 });
 
 // Batch status
@@ -1078,30 +1135,6 @@ app.post("/batch-status", (req, res) => {
   const { jobIds } = req.body;
   if (!jobIds) return res.status(400).json({ error: "No jobIds" });
   res.json(jobIds.map(id => jobs[id] || { id, step: "not_found" }));
-});
-
-// Download all as zip
-app.post("/download-all", async (req, res) => {
-  const { jobIds } = req.body;
-  if (!jobIds) return res.status(400).json({ error: "No jobIds" });
-  try {
-    const archiver = require("archiver");
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader("Content-Disposition", "attachment; filename=videos.zip");
-    const archive = archiver("zip");
-    archive.pipe(res);
-    jobIds.forEach((id, i) => {
-      const job = jobs[id];
-      if (job?.videoUrl) {
-        const filePath = path.join(__dirname, job.videoUrl.replace("/outputs/", "outputs/"));
-        if (fs.existsSync(filePath)) {
-          const baseName = job.filename ? path.basename(job.filename, path.extname(job.filename)) : `product_${i+1}`;
-          archive.file(filePath, { name: `${baseName}_video.mp4` });
-        }
-      }
-    });
-    await archive.finalize();
-  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get("/status/:id", (req, res) => {
@@ -1119,21 +1152,18 @@ setInterval(() => {
 
 app.listen(PORT, () => {
   console.log(`\n🚀 Pic2Vid server running on port ${PORT}`);
-  console.log(`⚡ Gemini concurrency: ${GEMINI_CONCURRENCY} tabs | Meta AI: ${META_CONCURRENCY} tabs | Vibes.ai: ${VIBES_CONCURRENCY} tab`);
+  console.log(`⚡ Gemini concurrency: ${GEMINI_CONCURRENCY} tabs | Vibes.ai: ${VIBES_CONCURRENCY} tab`);
   if (IS_LOCAL) {
     console.log(`📂 Mode: LOCAL — pipeline overlap enabled`);
     // Hien thi tat ca account slots tim duoc
     const gSlots = getProfileSlots("gemini");
-    const mSlots = getProfileSlots("meta");
     const vSlots = getProfileSlots("vibes");
     console.log(`   Gemini accounts: ${gSlots.length > 0 ? gSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js gemini 1"}`);
-    console.log(`   Meta AI accounts: ${mSlots.length > 0 ? mSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js meta 1"}`);
     console.log(`   Vibes.ai accounts: ${vSlots.length > 0 ? vSlots.map(s => s.profileDir).join(", ") : "❌ NONE — chay: node add-account.js vibes 1"}`);
 
   } else {
     console.log(`☁️  Mode: CLOUD`);
     console.log(`   COOKIES_GEMINI: ${process.env.COOKIES_GEMINI ? "✅ set" : "❌ missing"}`);
-    console.log(`   COOKIES_META:   ${process.env.COOKIES_META ? "✅ set" : "❌ missing"}`);
     console.log(`   COOKIES_VIBES:  ${process.env.COOKIES_VIBES ? "✅ set" : "❌ missing"}`);
   }
   console.log(`\n🌐 Open: http://localhost:${PORT}\n`);
