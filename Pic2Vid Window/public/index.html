@@ -380,8 +380,9 @@
     /* STATUS & PROGRESS */
     .status-bar { display: none; align-items: center; gap: 12px; padding: 16px 20px; background: rgba(29, 158, 117, 0.15); backdrop-filter: blur(20px); border: 0.5px solid rgba(29, 158, 117, 0.4); border-radius: 18px; margin-bottom: 16px; font-size: 13px; color: #ffffff; font-weight: 600; }
     .batch-progress { display: none; padding: 18px 20px; background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.15); border-radius: 20px; margin-bottom: 16px; backdrop-filter: blur(20px); }
-    .batch-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; }
-    .batch-bar-fill { height: 100%; background: linear-gradient(90deg, #1D9E75, #68dbae); width: 0%; box-shadow: 0 0 15px rgba(29, 158, 117, 0.6); }
+    .batch-bar { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; display: flex; }
+    .batch-bar-fill { height: 100%; background: linear-gradient(90deg, #1D9E75, #68dbae); width: 0%; box-shadow: 0 0 15px rgba(29, 158, 117, 0.6); transition: width .3s ease; }
+    .batch-bar-fill-error { height: 100%; background: linear-gradient(90deg, #e5493d, #ffb4ab); width: 0%; transition: width .3s ease; }
 
     /* FILE LIST */
     .file-item { 
@@ -391,6 +392,18 @@
       border: 0.5px solid rgba(255, 255, 255, 0.12); 
       border-radius: 20px; margin-bottom: 12px; 
     }
+    .file-thumb-wrap { position: relative; flex-shrink: 0; }
+    .file-remove-btn {
+      position: absolute; top: -6px; right: -6px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #ffb4ab; color: #690005; border: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; cursor: pointer; opacity: 0; transform: scale(0.8);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    }
+    .file-thumb-wrap:hover .file-remove-btn { opacity: 1; transform: scale(1); }
+    .file-remove-btn:hover { background: #ff5449; }
 
     /* LOG & RESULTS */
     .log-panel { 
@@ -633,7 +646,7 @@
 <div class="track-line" id="l1"></div>
 <div class="track-step">
 <div class="track-dot" id="s2"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" style="width:22px;height:22px;flex-shrink:0"><defs><linearGradient id="meta_t_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_t_grad)"/></svg></div>
-<div class="track-label" id="sl2">Meta AI</div>
+<div class="track-label" id="sl2">Vibes.ai</div>
 </div>
 <div class="track-line" id="l2"></div>
 <div class="track-step">
@@ -663,7 +676,7 @@ Ultra realistic. 4K. No text. No watermark.</textarea>
 </div>
 <div class="prompt-item" style="margin-bottom:24px">
 <div class="prompt-toggle" onclick="togglePrompt('m')">
-<div class="prompt-toggle-left"><span class="ptag ptag-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="meta_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_grad)"/></svg><span id="videoProviderTag">Meta AI</span></span> Video prompt</div>
+<div class="prompt-toggle-left"><span class="ptag ptag-m"><svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="meta_grad" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-512 512 -512 -512 512 0)"><stop offset="0" stop-color="#ff97e3"/><stop offset=".13" stop-color="#ff97e3"/><stop offset=".18" stop-color="#d14fe1"/><stop offset=".34" stop-color="#0050e2"/><stop offset=".67" stop-color="#0050e2"/><stop offset=".81" stop-color="#00ddf4"/><stop offset=".86" stop-color="#23f8cc"/><stop offset="1" stop-color="#23f8cc"/></linearGradient></defs><path d="M256 0c141.385 0 256 114.615 256 256S397.385 512 256 512 0 397.385 0 256 114.615 0 256 0zm0 77.227c-98.744 0-178.773 80.029-178.773 178.773S157.256 434.773 256 434.773 434.773 354.744 434.773 256 354.744 77.227 256 77.227z" fill="url(#meta_grad)"/></svg><span id="videoProviderTag">Vibes.ai</span></span> Video prompt</div>
 <i class="ti ti-chevron-down prompt-arrow" id="mArrow"></i>
 </div>
 <div class="prompt-body" id="mBody" onclick="event.stopPropagation()">
@@ -713,13 +726,6 @@ Ultra realistic. 4K. No text. No watermark.</textarea>
 </div>
 </div>
 <div class="prompt-item" style="margin-bottom:24px">
-  <div style="padding:0 2px 10px 2px;font-size:12px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.03em;">Video Provider</div>
-  <div class="mode-tabs" style="margin:0;">
-    <div class="mode-tab active" id="providerMeta" onclick="setProvider('meta')">Meta AI</div>
-    <div class="mode-tab" id="providerVibes" onclick="setProvider('vibes')">Vibes.ai</div>
-  </div>
-</div>
-<div class="prompt-item" style="margin-bottom:24px">
   <label class="skip-toggle-card" for="skipGeminiCheckbox" id="skipGeminiCard">
     <input type="checkbox" id="skipGeminiCheckbox" class="skip-native-input" onchange="toggleSkipGemini()" onkeydown="if(event.key==='Enter'){event.preventDefault();this.click();}">
     <span class="skip-toggle-left">
@@ -741,16 +747,13 @@ Ultra realistic. 4K. No text. No watermark.</textarea>
 <span class="" id="batchProgressText">Processing...</span>
 <span class="" id="batchProgressCount">0/0</span>
 </div>
-<div class="batch-bar"><div class="batch-bar-fill" id="batchBarFill"></div></div>
+<div class="batch-bar"><div class="batch-bar-fill" id="batchBarFill"></div><div class="batch-bar-fill-error" id="batchBarFillError"></div></div>
 </div>
 <button class="run-btn" disabled="" id="runBtn" onclick="startPipeline()">
 <i class="ti ti-player-play btn-play-icon" style="font-size:18px"></i>
 <div class="btn-dots"><span></span><span></span><span></span></div>
 Running pipeline
 </button>
-<button class="dl-all-btn bg-[rgba(29,158,117,0.1)] text-[#1D9E75] border border-[rgba(29,158,117,0.3)] w-full p-4 rounded-[18px] font-bold hidden items-center justify-center gap-2 mb-5" id="dlAllBtn" onclick="downloadAll()" style="display: none;">
-<i class="ti ti-download"></i> Download all videos
-    </button>
 <button class="dl-all-btn bg-[rgba(255,180,171,0.05)] text-[#ffb4ab] border border-[rgba(255,180,171,0.2)] w-full p-4 rounded-[18px] font-bold hidden items-center justify-center gap-2 mb-5" id="retryFailedBtn" onclick="retryFailed()" style="display: none;">
 <i class="ti ti-refresh"></i> Retry failed images
     </button>
@@ -779,18 +782,9 @@ let batchJobIds = [];
 let pollInterval = null;
 let batchPollInterval = null;
 let lastBatchResults = [];
-let selectedProvider = 'meta';
+let selectedProvider = 'vibes';
 let skipGemini = false;
 
-function setProvider(p) {
-  selectedProvider = p;
-  document.getElementById('providerMeta').classList.toggle('active', p === 'meta');
-  document.getElementById('providerVibes').classList.toggle('active', p === 'vibes');
-  const label = document.getElementById('sl2');
-  if (label) label.textContent = p === 'vibes' ? 'Vibes.ai' : 'Meta AI';
-  const tag = document.getElementById('videoProviderTag');
-  if (tag) tag.textContent = p === 'vibes' ? 'Vibes.ai' : 'Meta AI';
-}
 
 function toggleSkipGemini() {
   skipGemini = document.getElementById('skipGeminiCheckbox').checked;
@@ -860,26 +854,6 @@ document.addEventListener('click', function(e) {
     if (tr) tr.classList.remove('open');
   }
 });
-
-async function downloadAll() {
-  const btn = document.getElementById('dlAllBtn');
-  btn.innerHTML = '<span class="spinning"><i class="ti ti-refresh"></i></span> Zipping...';
-  btn.disabled = true;
-  try {
-    const res = await fetch(BACKEND + '/download-all', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jobIds: batchJobIds })
-    });
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'videos.zip'; a.click();
-    URL.revokeObjectURL(url);
-  } catch (e) { alert('Download failed: ' + e.message); }
-  btn.innerHTML = '<i class="ti ti-download"></i> Download all videos';
-  btn.disabled = false;
-}
 
 async function retryFailed() {
   if (!lastBatchResults.length) return;
@@ -1112,7 +1086,6 @@ function setMode(m) {
   document.getElementById('logPanel').style.display = 'none';
   document.getElementById('statusBar').style.display = 'none';
   document.getElementById('batchProgress').style.display = 'none'; // Ẩn thanh tiến độ Batch cũ
-  document.getElementById('dlAllBtn').style.display = 'none'; // Ẩn nút Download All cũ
   if (document.getElementById('retryFailedBtn')) {
     document.getElementById('retryFailedBtn').style.display = 'none'; // Ẩn nút Retry cũ
   }
@@ -1168,17 +1141,36 @@ function resetSingle() {
 }
 
 function handleBatchFiles(input) {
-  selectedFiles = Array.from(input.files);
-  if (!selectedFiles.length) return;
+  const newFiles = Array.from(input.files);
+  if (!newFiles.length) return;
+  selectedFiles = selectedFiles.concat(newFiles);
+  input.value = ''; // cho phep chon lai cung file sau nay neu can
+  renderFileList();
+}
+
+function removeBatchFile(index) {
+  selectedFiles.splice(index, 1);
+  renderFileList();
+}
+
+function renderFileList() {
   const list = document.getElementById('fileList');
   list.innerHTML = '';
+  if (!selectedFiles.length) {
+    list.style.display = 'none';
+    document.getElementById('runBtn').disabled = true;
+    return;
+  }
   list.style.display = 'block';
   selectedFiles.forEach((file, i) => {
     const item = document.createElement('div');
     item.className = 'file-item';
     item.id = `file-item-${i}`;
     item.innerHTML = `
-      <img class="w-[52px] h-[52px] rounded-[10px] object-cover bg-black/20 shrink-0" id="file-thumb-${i}" src="" alt="" />
+      <div class="file-thumb-wrap">
+        <img class="w-[52px] h-[52px] rounded-[10px] object-cover bg-black/20 shrink-0" id="file-thumb-${i}" src="" alt="" />
+        <button type="button" class="file-remove-btn" onclick="removeBatchFile(${i})" title="Xóa ảnh này"><i class="ti ti-x"></i></button>
+      </div>
       <div class="flex-1 min-w-0">
         <div class="text-[14px] font-semibold text-white truncate">${file.name}</div>
         <div class="text-[12px] text-white/60 mt-1 font-medium" id="fstatus-${i}">Queued</div>
@@ -1188,7 +1180,7 @@ function handleBatchFiles(input) {
     `;
     list.appendChild(item);
     const reader = new FileReader();
-    reader.onload = (f => e => { document.getElementById('file-thumb-' + f).src = e.target.result; })(i);
+    reader.onload = (f => e => { const im = document.getElementById('file-thumb-' + f); if (im) im.src = e.target.result; })(i);
     reader.readAsDataURL(file);
   });
   document.getElementById('runBtn').disabled = false;
@@ -1347,6 +1339,21 @@ async function startBatch() {
   document.getElementById('batchProgress').style.display = 'block';
   document.getElementById('batchProgressCount').textContent = `0/${selectedFiles.length}`;
   document.getElementById('batchProgressText').textContent = 'Starting...';
+  // Reset lai trang thai tung o ve mac dinh (Queued, thanh xanh 0%, an nut download) —
+  // FIX: truoc day "Run again" khong dong den cac phan tu nay, nen o nao bi loi lan
+  // truoc (dang bi set cung mau do #ffb4ab) se GIU NGUYEN mau do mai mai kho chay lai,
+  // vi cac buoc 'queued'/'running' trong pollBatch chi chinh width, khong chinh lai background.
+  document.getElementById('retryFailedBtn').style.display = 'none';
+  selectedFiles.forEach((_, i) => {
+    const statusEl = document.getElementById(`fstatus-${i}`);
+    const progEl = document.getElementById(`fprog-${i}`);
+    const dlEl = document.getElementById(`fdl-${i}`);
+    if (statusEl) { statusEl.textContent = 'Queued'; statusEl.className = 'text-[12px] text-white/60 mt-1 font-medium'; }
+    if (progEl) { progEl.style.width = '0%'; progEl.style.background = '#1D9E75'; }
+    if (dlEl) dlEl.style.display = 'none';
+  });
+  document.getElementById('batchBarFill').style.width = '0%';
+  document.getElementById('batchBarFillError').style.width = '0%';
   const form = new FormData();
   selectedFiles.forEach(f => form.append('images', f));
   form.append('geminiPrompt', document.getElementById('geminiPrompt').value);
@@ -1374,31 +1381,38 @@ async function pollBatch() {
     });
     const results = await res.json();
     lastBatchResults = results;
-    let done = 0;
+    let success = 0, error = 0;
     results.forEach((job, i) => {
       const statusEl = document.getElementById(`fstatus-${i}`);
       const progEl = document.getElementById(`fprog-${i}`);
       const dlEl = document.getElementById(`fdl-${i}`);
       if (!statusEl) return;
-      if (job.step === 'queued') { statusEl.textContent = 'Queued'; progEl.style.width = '0%'; }
-      else if (job.step === 'running' || job.step === 'gemini_running') { statusEl.textContent = 'Enhancing...'; statusEl.classList.add('text-[#1D9E75]'); progEl.style.width = '33%'; }
+      if (job.step === 'queued') { statusEl.textContent = 'Queued'; progEl.style.width = '0%'; progEl.style.background = '#1D9E75'; }
+      else if (job.step === 'running' || job.step === 'gemini_running') { statusEl.textContent = 'Enhancing...'; statusEl.classList.add('text-[#1D9E75]'); progEl.style.width = '33%'; progEl.style.background = '#1D9E75'; }
       else if (job.step === 'gemini_done' || job.step === 'meta_running') { statusEl.textContent = 'Generating...'; progEl.style.width = '66%'; }
       else if (job.step === 'meta_done') {
         statusEl.textContent = 'Done ✓'; statusEl.classList.add('text-[#1D9E75]'); progEl.style.width = '100%';
-        done++;
+        success++;
         if (job.videoUrl) { dlEl.style.display = 'block'; dlEl.onclick = () => dlFile(job.videoUrl, `video_${i+1}.mp4`); }
       }
-      else if (job.step === 'error') { statusEl.textContent = '❌ Error'; statusEl.classList.add('text-[#ffb4ab]'); progEl.style.width = '100%'; progEl.style.background = '#ffb4ab'; done++; }
+      else if (job.step === 'error') { statusEl.textContent = '❌ Error'; statusEl.classList.add('text-[#ffb4ab]'); progEl.style.width = '100%'; progEl.style.background = '#ffb4ab'; error++; }
     });
-    document.getElementById('batchProgressCount').textContent = `${done}/${batchJobIds.length}`;
-    document.getElementById('batchProgressText').textContent = done === batchJobIds.length ? 'All done!' : `Processing... ${done} of ${batchJobIds.length}`;
-    document.getElementById('batchBarFill').style.width = `${(done / batchJobIds.length) * 100}%`;
-    if (done === batchJobIds.length) {
+    // FIX: truoc day chi tinh "done" gop chung success+error nen dai "All done!" mau xanh
+    // hien ngay ca khi co job Error. Gio tach rieng success/error de hien thi dung ty le
+    // va dung mau (xanh cho done, do/cam cho fail), giong nhu UI cua tung o rieng le.
+    const total = batchJobIds.length;
+    const processed = success + error;
+    document.getElementById('batchProgressCount').textContent = error > 0 ? `${success} done / ${error} fail` : `${processed}/${total}`;
+    document.getElementById('batchProgressText').textContent = processed < total
+      ? `Processing... ${processed} of ${total}`
+      : (error > 0 ? 'Completed with errors' : 'All done!');
+    document.getElementById('batchBarFill').style.width = `${(success / total) * 100}%`;
+    document.getElementById('batchBarFillError').style.width = `${(error / total) * 100}%`;
+    if (processed === total) {
       clearInterval(batchPollInterval);
       clearState();
       resetBtn(true);
-      if (results.some(j => j.videoUrl)) document.getElementById('dlAllBtn').style.display = 'flex';
-      if (results.some(j => j.step === 'error')) document.getElementById('retryFailedBtn').style.display = 'flex';
+      if (error > 0) document.getElementById('retryFailedBtn').style.display = 'flex';
     }
   } catch (_) {}
 }
