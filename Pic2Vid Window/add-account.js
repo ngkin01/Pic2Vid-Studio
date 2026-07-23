@@ -4,6 +4,7 @@
  * Cách dùng:
  *   node add-account.js gemini 2   → mở Chrome profile_gemini_2 để đăng nhập
  *   node add-account.js meta 2     → mở Chrome profile_meta_2 để đăng nhập
+ *   node add-account.js vibes 1    → mở Chrome profile_vibes_1 để đăng nhập
  *   node add-account.js gemini 3   → mở Chrome profile_gemini_3 để đăng nhập
  *
  * Sau khi đăng nhập xong, đóng cửa sổ Chrome lại.
@@ -17,17 +18,24 @@ const fs = require("fs");
 const service = process.argv[2]; // "gemini" hoặc "meta"
 const slot    = process.argv[3]; // "1", "2", "3"...
 
-if (!service || !slot || !["gemini", "meta"].includes(service)) {
-  console.log("❌ Cách dùng: node add-account.js [gemini|meta] [số slot]");
+if (!service || !slot || !["gemini", "meta", "vibes"].includes(service)) {
+  console.log("❌ Cách dùng: node add-account.js [gemini|meta|vibes] [số slot]");
   console.log("   Ví dụ: node add-account.js gemini 2");
   console.log("   Ví dụ: node add-account.js meta 2");
+  console.log("   Ví dụ: node add-account.js vibes 1");
   process.exit(1);
 }
 
 const profileDir = path.join(__dirname, `profile_${service}_${slot}`);
-const loginUrl   = service === "gemini" ? "https://gemini.google.com" : "https://meta.ai";
+const loginUrls = {
+  gemini: "https://gemini.google.com",
+  meta: "https://meta.ai",
+  vibes: "https://vibes.ai",
+};
+const loginUrl = loginUrls[service];
+const serviceLabel = { gemini: "Gemini (Google)", meta: "Meta AI", vibes: "Vibes.ai" }[service];
 
-console.log(`\n🔐 Mở Chrome để đăng nhập ${service === "gemini" ? "Gemini (Google)" : "Meta AI"} — Slot ${slot}`);
+console.log(`\n🔐 Mở Chrome để đăng nhập ${serviceLabel} — Slot ${slot}`);
 console.log(`📂 Profile: ${profileDir}`);
 console.log(`🌐 URL: ${loginUrl}`);
 console.log(`\n👉 Đăng nhập xong thì đóng cửa sổ Chrome lại.\n`);
