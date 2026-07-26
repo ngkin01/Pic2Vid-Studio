@@ -1,8 +1,8 @@
 # 🎬 Pic2Vid Studio — Hướng dẫn cài đặt (Windows)
 
 Ứng dụng này giúp bạn tự động:
-1. Đưa ảnh sản phẩm vào **Gemini** → tạo ảnh đẹp hơn
-2. Từ ảnh đó đưa vào **Meta AI** → tạo video TikTok
+1. Đưa ảnh sản phẩm vào **Gemini** → tạo ảnh đẹp hơn *(có thể bỏ qua bước này nếu muốn dùng ảnh gốc)*
+2. Từ ảnh đó đưa vào **Vibes.ai** → tạo video sản phẩm
 
 ---
 
@@ -10,7 +10,7 @@
 
 - Máy tính Windows 10 hoặc 11
 - Có tài khoản **Google** (để dùng Gemini)
-- Có tài khoản **Facebook** (để dùng Meta AI)
+- Có tài khoản **Vibes.ai** (để tạo video)
 - Có **Google Chrome** cài sẵn trên máy
 
 ---
@@ -48,27 +48,32 @@
 
 ### Bước 4 — Đăng nhập Gemini
 
-Sau khi cài xong, cửa sổ sẽ tự mở Chrome và vào trang Gemini:
+Sau khi cài xong, cửa sổ đen sẽ báo và tự mở **Chrome** vào trang Gemini:
 
 1. Đăng nhập bằng tài khoản **Google** của bạn như bình thường
-2. Đăng nhập xong, thấy trang chat Gemini → **quay lại cửa sổ đen**
-3. Nhấn **Enter**
+2. Đăng nhập xong, thấy trang chat Gemini hiện ra → **đóng cửa sổ Chrome đó lại**
+3. Script sẽ tự động chuyển sang bước tiếp theo (không cần quay lại cửa sổ đen)
 
 ---
 
-### Bước 5 — Đăng nhập Meta AI
+### Bước 5 — Đăng nhập Vibes.ai
 
-Ngay sau đó Chrome sẽ mở trang Meta AI:
+Ngay sau đó Chrome sẽ tự mở tiếp trang Vibes.ai:
 
-1. Đăng nhập bằng tài khoản **Facebook** của bạn
-2. Đăng nhập xong, thấy trang chat Meta AI → **quay lại cửa sổ đen**
-3. Nhấn **Enter**
+1. Đăng nhập bằng tài khoản **Vibes.ai** của bạn
+2. Đăng nhập xong, thấy trang dự án (projects) hiện ra → **đóng cửa sổ Chrome đó lại**
 
 ---
 
 ### ✅ Setup hoàn tất!
 
-Cửa sổ sẽ hiện thông báo *"Setup hoàn tất"*. Từ giờ không cần làm lại bước này nữa.
+Cửa sổ đen sẽ hiện thông báo *"Setup hoàn tất"*. Từ giờ không cần làm lại bước này nữa.
+
+> 💡 Muốn thêm tài khoản dự phòng (chạy song song / phòng khi hết quota), mở cửa sổ đen (Command Prompt) trong folder này và chạy:
+> ```
+> node add-account.js gemini 2
+> node add-account.js vibes 2
+> ```
 
 ---
 
@@ -90,3 +95,14 @@ Từ giờ double-click shortcut đó ngoài Desktop là chạy được luôn.
 2. Cửa sổ đen xuất hiện + trình duyệt tự mở trang **Product Studio**
 
 > 💡 Giữ cửa sổ đen mở trong khi dùng. Đóng cửa sổ đen là ứng dụng tắt.
+
+> 💡 Trong giao diện có tuỳ chọn **"Skip Gemini"** — bật lên nếu muốn dùng thẳng ảnh gốc để tạo video, bỏ qua bước làm đẹp ảnh bằng Gemini.
+
+---
+
+## 💰🧧 ✨ 🧧💰
+
+**Chúc bạn nhiều hoa hồng 🌹, tài vận hanh thông 💸, giàu sang phú quý 👑💎!**
+
+🐉💰🧧✨🧧💰🐉
+
