@@ -44,20 +44,32 @@ echo ======================================
 echo    BUOC DANG NHAP
 echo ======================================
 echo.
-echo Sap mo 2 cua so Chrome de ban dang nhap:
-echo   1. Gemini ^(dang nhap bang Google^)
-echo   2. Meta AI ^(dang nhap bang Facebook^)
+echo Sap mo lan luot 2 cua so Chrome de ban dang nhap:
+echo   1. Gemini    ^(dang nhap bang tai khoan Google^)
+echo   2. Vibes.ai  ^(dang nhap bang tai khoan Vibes.ai^)
 echo.
-echo Moi lan dang nhap xong - quay lai day nhan Enter
+echo Dang nhap xong o moi cua so thi DONG cua so Chrome do lai.
+echo Script se TU DONG chuyen sang buoc tiep theo, khong can quay lai
+echo day nhan Enter.
 echo.
 pause
-node export-cookies.js
+
+echo.
+echo --- [1/2] Dang nhap Gemini (Slot 1) ---
+call node add-account.js gemini 1
+
+echo.
+echo --- [2/2] Dang nhap Vibes.ai (Slot 1) ---
+call node add-account.js vibes 1
 
 echo.
 echo ======================================
 echo OK Setup hoan tat!
 echo.
-echo Tu gio chi can double-click START.bat de dung
+echo Tu gio chi can double-click START.bat de dung.
+echo ^(Neu muon them tai khoan du phong, chay:
+echo   node add-account.js gemini 2
+echo   node add-account.js vibes 2 ^)
 echo ======================================
 echo.
 pause
